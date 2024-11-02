@@ -20,18 +20,31 @@ ApplicationWindow {
         inputStartIndex: 0
     }
 
-    Column {
-        anchors.fill: parent
-        anchors.margins: 10
-        spacing: 10
-
-        // Main GUI part.
-            
+    Flickable {
+        id: flick
+        width: parent.width
+        height: parent.height
+        contentWidth: mainTextArea.contentWidth
+        contentHeight: mainTextArea.contentHeight
+        clip: true
+        flickableDirection: Flickable.VerticalFlick // Only allow vertical flicking.
+        
+        function ensureVisible(r) {
+            if (contentX >= r.x)
+                contentX = r.x;
+            else if (contentX+width <= r.x+r.width)
+                contentX = r.x+r.width-width;
+            if (contentY >= r.y)
+                contentY = r.y;
+            else if (contentY+height <= r.y+r.height)
+                contentY = r.y+r.height-height;
+        }
+        
         TextEdit {
             id: mainTextArea
-            width: parent.width
-            height: parent.height
+            width: flick.width
             wrapMode: Text.Wrap
+            focus: true
             color: "white"
             text: ""
             font.pointSize: 20
@@ -43,7 +56,7 @@ ApplicationWindow {
                 if (mainTextArea.cursorPosition < terminalTextObject.inputStartIndex) {
                     mainTextArea.cursorPosition = terminalTextObject.inputStartIndex;
                 } else if (mainTextArea.cursorPosition == terminalTextObject.inputStartIndex && (event.key === Qt.Key_Backspace || event.key === Qt.Key_Left || event.key === Qt.Key_Up)) {
-                    console.log("I am here!");
+                    // console.log("I am here!");
                     event.accepted = true;
                     return;
                 }
@@ -75,6 +88,9 @@ ApplicationWindow {
                     // event.accepted = true; // If this is uncommented, event will be ignored so in this case we won't go to the next line.
                 }
             }
+
+            // Allows us to scroll.
+            onCursorRectangleChanged: flick.ensureVisible(cursorRectangle)
         }
 
         // Signal handler to update the GUI with the outputs of commands.
@@ -84,7 +100,7 @@ ApplicationWindow {
 
             function onOutputBufferUpdated() {
                 mainTextArea.insert(mainTextArea.length, terminalTextObject.outputBuffer);
-                console.log("This is the input start index: ", terminalTextObject.inputStartIndex);
+                // console.log("This is the input start index: ", terminalTextObject.inputStartIndex);
             }
         }
     }
