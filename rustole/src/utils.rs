@@ -1,4 +1,3 @@
-use core::num;
 use std::os::fd::{AsRawFd, OwnedFd};
 use std::process::Command;
 use std::thread;
@@ -9,8 +8,6 @@ use nix::pty::{forkpty, ForkptyResult};
 use winit::event_loop::EventLoopProxy;
 
 use nix::unistd::read;
-
-use crate::State;
 
 #[derive(Clone, Debug)]
 pub struct SomethingInFd {

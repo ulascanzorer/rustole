@@ -135,15 +135,12 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
 
         let window = Some(window);
 
-        self.performer.as_mut().unwrap().window = window;
-        self.performer.as_mut().unwrap().brush = brush;
-        self.performer.as_mut().unwrap().section_0 = section_0;
-        self.performer.as_mut().unwrap().section_1 = section_1;
+        let performer_mut = self.performer.as_mut().unwrap();
 
-        let something = &self.performer.as_ref().unwrap().font_color;
-
-        self.performer.as_mut().unwrap().font_color = *something;
-
+        performer_mut.window = window;
+        performer_mut.brush = brush;
+        performer_mut.section_0 = section_0;
+        performer_mut.section_1 = section_1;
 
     }
 
