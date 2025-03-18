@@ -376,12 +376,18 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                     Err(err) => panic!("{err}")
                 }
 
+                // TODO: This part is a little weird, probably because of the linux nvidia 550 driver.
+            
                 let frame = match surface.get_current_texture() {
                     Ok(frame) => frame,
                     Err(_) => {
                         surface.configure(device, config);
-                        surface.get_current_texture().expect("Failed to acquire next surface texture!")
-                    }
+                        return ();
+                    },
+                    // {
+                    //    surface.configure(device, config);
+                    //    surface.get_current_texture().expect("Failed to acquire next surface texture!")
+                    //}
                 };
 
                 let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
