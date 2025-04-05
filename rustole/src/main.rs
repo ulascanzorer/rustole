@@ -183,23 +183,31 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
 
                             println!("{written_text}");
 
-                            // Remove the written text.
-                            performer_mut.section_0.as_mut().unwrap().text.clear();
-
-                            // Reset the cursor.
-                            performer_mut.section_1.as_mut().unwrap().text.clear();
-                            performer_mut.section_1.as_mut().unwrap().text.push(
-                                OwnedText::new("█")
-                                    .with_scale(performer_mut.font_size)
-                                    .with_color([0.6, 0.6, 0.5, 0.5]),
-                            );
-
                             // Write an example command to check if the shell receives it and shows some output. TODO: Remove this of course.
 
                             match write(performer_mut.pty_fd, String::from("echo 'Heyy'\n").as_bytes()) {
                                 Ok(_n) => (),
                                 Err(_e) => (),
                             }
+
+                            // Insert a "\n" (newline) to the text section.
+
+                            performer_mut.section_0.as_mut().unwrap().text.push(
+                                OwnedText::new("\n")
+                                .with_scale(performer_mut.font_size)
+                            );
+
+                            // Also apply newline logic to the cursor.
+
+                            performer_mut.section_1.as_mut().unwrap().text.push(
+                                OwnedText::new("█")
+                                .with_scale(performer_mut.font_size)
+                                .with_color([0.6, 0.6, 0.5, 0.5])
+                            );
+
+                            let section_1_len = performer_mut.section_1.as_mut().unwrap().text.len();
+
+                            performer_mut.section_1.as_mut().unwrap().text[section_1_len - 2] = OwnedText::new("\n").with_scale(performer_mut.font_size);
                         }
                         NamedKey::Backspace => {
                             let section_0 = performer_mut.section_0.as_mut().unwrap();
