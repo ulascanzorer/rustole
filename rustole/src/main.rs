@@ -13,14 +13,13 @@ use glyph_brush::ab_glyph::FontRef;
 use utils::StateConfig;
 use vte::Parser;
 
-
 use std::os::fd::OwnedFd;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use nix::unistd::write;
 
 use wgpu_text::glyph_brush::{
-    BuiltInLineBreaker, Layout, OwnedText, Section, Text
+    BuiltInLineBreaker, Layout, Section, Text
 };
 use wgpu_text::{BrushBuilder, TextBrush};
 
@@ -37,6 +36,9 @@ use winit::window::Window;
 struct State<'a> {
     performer: Option<performer::Performer<'a>>,
     parser: Parser,
+    
+    text_string: &'a mut String,
+    cursor_string: &'a mut String,
 
     target_framerate: Duration,
     delta_time: Instant,
@@ -77,6 +79,11 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
 
         let section_0 = Some(
             Section::default()
+                .add_text(
+                    Text::new(self.text_string)
+                        .with_scale(performer_mut.font_size)
+                        .with_color([0.6, 0.6, 0.5, 1.0])
+                )
                 .with_bounds((config.width as f32 * 0.95, config.height as f32))
                 .with_layout(
                     Layout::default()
@@ -86,10 +93,14 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                 .to_owned(),
         );
 
+        // Push the initial cursor to the cursor_string.
+
+        self.cursor_string.push_str("█");
+
         let section_1 = Some(
             Section::default()
                 .add_text(
-                    Text::new("█")
+                    Text::new(self.cursor_string)
                         .with_scale(performer_mut.font_size)
                         .with_color([0.6, 0.6, 0.5, 0.5]),
                 )
@@ -155,120 +166,101 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                         NamedKey::Escape => event_loop.exit(),
                         NamedKey::Delete => {
                             // Remove the written text.
-                            performer_mut.section_0.as_mut().unwrap().text.clear();
+                            performer_mut.section_0.as_mut().unwrap().text[0].text.clear();
 
                             // Reset the cursor.
-                            performer_mut.section_1.as_mut().unwrap().text.clear();
-                            performer_mut.section_1.as_mut().unwrap().text.push(
-                                OwnedText::new("█")
-                                    .with_scale(performer_mut.font_size)
-                                    .with_color([0.6, 0.6, 0.5, 0.5]),
-                            );
+                            
+                            performer_mut.section_1.as_mut().unwrap().text[0].text.clear();
+                            performer_mut.section_1.as_mut().unwrap().text[0].text.push_str("█");
                         }
                         NamedKey::Enter => {
-                            let written_text: String = performer_mut.section_0.as_mut().unwrap().text
-                                .iter()
-                                .map(|element| element.text.clone())
-                                .collect();
+                            let text = &mut performer_mut.section_0.as_mut().unwrap().text[0].text;
+                            let cursor_text = &mut performer_mut.section_1.as_mut().unwrap().text[0].text;
 
                             // NOTE: Define more native terminal commands like "exit" here, if necessary.
 
-                            match written_text.as_ref() {
+                            match text.as_ref() {
                                 "exit" => event_loop.exit(),
                                 "clear" => {
-                                    performer_mut.section_0.as_mut().unwrap().text.clear();
+                                    *text = String::from("");
                                 },
                                 _ => ()
                             }
 
-                            println!("{written_text}");
+                            println!("{text}");
 
-                            // Write an example command to check if the shell receives it and shows some output. TODO: Remove this of course.
+                            // Insert a "\n" (newline) to the text section.
 
-                            match write(performer_mut.pty_fd, String::from("echo 'Heyy'\n").as_bytes()) {
+                            text.push_str("\n");
+
+                            // Send the user input part of the text to the shell and show some output. TODO: Make it so that it only sends the user input.
+
+                            match write(performer_mut.pty_fd, text.as_bytes()) {
                                 Ok(_n) => (),
                                 Err(_e) => (),
                             }
 
-                            // Insert a "\n" (newline) to the text section.
-
-                            performer_mut.section_0.as_mut().unwrap().text.push(
-                                OwnedText::new("\n")
-                                .with_scale(performer_mut.font_size)
-                            );
-
                             // Also apply newline logic to the cursor.
 
-                            performer_mut.section_1.as_mut().unwrap().text.push(
-                                OwnedText::new("█")
-                                .with_scale(performer_mut.font_size)
-                                .with_color([0.6, 0.6, 0.5, 0.5])
-                            );
-
-                            let section_1_len = performer_mut.section_1.as_mut().unwrap().text.len();
-
-                            performer_mut.section_1.as_mut().unwrap().text[section_1_len - 2] = OwnedText::new("\n").with_scale(performer_mut.font_size);
+                            if let Some((last_char_idx, _)) = cursor_text.char_indices().rev().nth(0) {
+                                cursor_text.insert(last_char_idx, '\n');
+                            }
                         }
                         NamedKey::Backspace => {
-                            let section_0 = performer_mut.section_0.as_mut().unwrap();
-                            let section_1 = performer_mut.section_1.as_mut().unwrap();
+                            let text = &mut performer_mut.section_0.as_mut().unwrap().text[0].text;
+                            let cursor_text = &mut performer_mut.section_1.as_mut().unwrap().text[0].text;
 
-                            if !section_0.text.is_empty() && section_1.text.len() >= 2 {
-                                let mut end_text = section_0.text.remove(section_1.text.len() - 2);
-                                end_text.text.pop();
-                                if !end_text.text.is_empty() {
-                                    section_0.text.push(end_text.clone());
-                                }
+                            if !text.is_empty() {
+                                text.pop();
                             }
 
                             // Move the cursor backward.
 
-                            utils::move_cursor_left(&mut performer_mut.section_1, &performer_mut.font_size, 1);
+                            utils::move_cursor_left(cursor_text,1);
                         }
                         NamedKey::Space => {
-                            performer_mut.section_0.as_mut().unwrap().text.insert(
-                                performer_mut.section_1.as_ref().unwrap().text.len() - 1,
-                                OwnedText::new(" ")
-                                    .with_scale(performer_mut.font_size)
-                            );
+                            let text = &mut performer_mut.section_0.as_mut().unwrap().text[0].text;
+                            let cursor_text = &mut performer_mut.section_1.as_mut().unwrap().text[0].text;
 
-                            utils::move_cursor_right(&mut performer_mut.section_1, &performer_mut.font_size, 1);
+                            text.push_str(" ");
+
+                            utils::move_cursor_right(cursor_text, 1);
                         }
 
                         NamedKey::ArrowLeft => {
                             // Move the cursor backward.
-
-                            utils::move_cursor_left(&mut performer_mut.section_1, &performer_mut.font_size, 1);
+                            utils::move_cursor_left(&mut performer_mut.section_1.as_mut().unwrap().text[0].text, 1);
                         }
 
                         NamedKey::ArrowRight => {
                             // Don't move the cursor further forward, if we are right at the end of the written text.
 
-                            if performer_mut.section_1.as_ref().unwrap().text.len() >= performer_mut.section_0.as_ref().unwrap().text.len() + 1 {
+                            if performer_mut.section_1.as_ref().unwrap().text[0].text.len() > performer_mut.section_0.as_ref().unwrap().text[0].text.len() + 2 {
                                 return;
                             }
 
                             // Move the cursor forward.
-
-                            utils::move_cursor_right(&mut performer_mut.section_1, &performer_mut.font_size, 1);
+                            utils::move_cursor_right(&mut performer_mut.section_1.as_mut().unwrap().text[0].text, 1);
                         }
                         _ => ()
                     },
 
                     Key::Character(char) => {
                         let c = char.as_str();
+
+                        let text = &mut performer_mut.section_0.as_mut().unwrap().text[0].text;
                         
-                        performer_mut.section_0.as_mut().unwrap().text.insert(
+                        text.push_str(c);
+
+                        /* performer_mut.section_0.as_mut().unwrap().text.insert(
                             performer_mut.section_1.as_ref().unwrap().text.len() - 1,
                             OwnedText::new(c.to_string())
                                 .with_scale(performer_mut.font_size)
                                 .with_color(performer_mut.font_color),
-                        );
+                        ); */
 
                         // Move the cursor forward.
-
-                        utils::move_cursor_right(&mut performer_mut.section_1, &performer_mut.font_size, 1);
-                        
+                        utils::move_cursor_right(&mut performer_mut.section_1.as_mut().unwrap().text[0].text, 1);
                     },
                     
                     _ => (),
@@ -388,6 +380,10 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
         let buffer = event.buffer;
         let number_of_elements_in_buffer = event.number_of_elements_in_buffer;
 
+        let buffer_string = String::from_utf8(buffer.clone()).unwrap();
+
+        println!("This is what I have received from the shell: {}", buffer_string);
+
         self.parser.advance(self.performer.as_mut().unwrap(), &buffer[..number_of_elements_in_buffer]);
 
         if let Some(window) = self.performer.as_ref().unwrap().window.as_ref() {
@@ -398,7 +394,7 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
 
 
 impl<'a> State<'a> {
-    fn new(fd: &'a OwnedFd, state_config: &'a StateConfig) -> Self {
+    fn new(fd: &'a OwnedFd, state_config: &'a StateConfig, content_text: &'a mut String, cursor_text: &'a mut String) -> Self {
         let font_color = [0.9, 0.5, 0.5, 1.0];
 
         // Create the parser.
@@ -421,6 +417,9 @@ impl<'a> State<'a> {
                 pty_fd: &fd,
             }),
             parser: parser,
+
+            text_string: content_text,
+            cursor_string: cursor_text,
 
             // FPS and window updating:
             // change '60.0' if you want different FPS cap
@@ -461,7 +460,12 @@ fn main() {
 
     let state_config = utils::StateConfig::new();
 
-    let mut state = State::new(&stdout_fd, &state_config);
+    // Create Strings to store the content text and the cursor text of the State.
+
+    let mut content_text = String::new();
+    let mut cursor_text = String::new();
+
+    let mut state = State::new(&stdout_fd, &state_config, &mut content_text, &mut cursor_text);
 
     let _ = event_loop.run_app(&mut state);
 }

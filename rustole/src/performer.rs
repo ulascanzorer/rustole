@@ -1,7 +1,6 @@
 use std::{os::fd::OwnedFd, sync::Arc};
 
-use glyph_brush::{ab_glyph::FontRef, OwnedSection, OwnedText};
-use unicode_width::UnicodeWidthChar;
+use glyph_brush::{ab_glyph::FontRef, OwnedSection};
 use vte::{Params, Perform};
 use wgpu_text::TextBrush;
 use winit::window::Window;
@@ -24,15 +23,13 @@ pub struct Performer<'a> {
 
 impl<'a> Perform for Performer<'a> {
     fn print(&mut self, c: char) {
-        self.section_0.as_mut().unwrap().text.push(
-            OwnedText::new(c)
-                .with_scale(self.font_size)
-                .with_color(self.font_color)
-        );
+        let text = &mut self.section_0.as_mut().unwrap().text[0].text;
 
-        let width = UnicodeWidthChar::width(c).unwrap_or(0);
+        text.push(c);
 
-        utils::move_cursor_right(&mut self.section_1, &self.font_size, width);
+        /* let width = UnicodeWidthChar::width(c).unwrap_or(0);
+
+        utils::move_cursor_right(&mut self.section_1, &self.font_size, width); */
     }
 
     fn execute(&mut self, _byte: u8) {

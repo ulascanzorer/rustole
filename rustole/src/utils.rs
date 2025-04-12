@@ -7,7 +7,6 @@ use std::thread;
 use std::time::Duration;
 use std::fs;
 
-use glyph_brush::{OwnedSection, OwnedText};
 use nix::pty::{forkpty, ForkptyResult};
 use winit::event_loop::EventLoopProxy;
 
@@ -118,46 +117,24 @@ pub fn expand_tilde(path: &str) -> String {
     }
 }
 
-pub fn move_cursor_right(section_1: &mut Option<OwnedSection>, font_size: &f32, number_of_chars: usize) {
-    // Move the cursor forward.
-
-    // NOTE: Here, we add an example character with 0 opacity as "space", because using an actual space character can cause problems
+pub fn move_cursor_right(cursor_text: &mut String, number_of_chars: usize) {
+    // NOTE: Here, we used to add an example character with 0 opacity as "space", because using an actual space character can cause problems
     // in line breaks, which leads to the cursor falling behind at each new line :).
 
-    let section_1 = section_1.as_mut().unwrap();
+   // TODO: Fix the space vs 0 opacity character problem with the new approach.
 
-    if let Some(last) = section_1.text.last_mut() {
-        *last = OwnedText::new("0")
-                    .with_scale(*font_size)
-                    .with_color([0.9, 0.5, 0.5, 0.0]);
-    }
+    cursor_text.pop();
 
     for _ in 0..number_of_chars {
-        section_1.text.push(
-            OwnedText::new("0")
-                .with_scale(*font_size)
-                .with_color([0.9, 0.5, 0.5, 0.0])
-        );
+        cursor_text.push(' ');
     }
 
-    if let Some(last) = section_1.text.last_mut() {
-        *last = OwnedText::new("█")
-                    .with_scale(*font_size)
-                    .with_color([0.6, 0.6, 0.5, 0.5])
-    }
+    cursor_text.push_str("█");
 }
 
-pub fn move_cursor_left(section_1: &mut Option<OwnedSection>, font_size: &f32, number_of_chars: usize) {
-    let section_1 = section_1.as_mut().unwrap();
+pub fn move_cursor_left(cursor_text: &mut String, number_of_chars: usize) {
+    let truncation_idx = cursor_text.char_indices().rev().nth(number_of_chars).map(|(i, _)| i).unwrap_or(0);
 
-    for _ in 0..number_of_chars {
-        if section_1.text.len() > 1 {
-            section_1.text.pop();
-            if let Some(last) = section_1.text.last_mut() {
-                *last = OwnedText::new("█")
-                            .with_scale(*font_size)
-                            .with_color([0.6, 0.6, 0.5, 0.5]);
-            }
-        }
-    }
+    cursor_text.truncate(truncation_idx);
+    cursor_text.push_str("█");
 }
