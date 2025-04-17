@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use std::os::fd::{AsRawFd, OwnedFd};
+use std::os::fd::{AsRawFd, BorrowedFd, OwnedFd};
 use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::Command;
@@ -75,8 +75,9 @@ pub fn spawn_pty_with_shell(default_shell: String) -> OwnedFd {
                     ForkptyResult::Parent { child: _, master } => {
                         master
                     }
-                    ForkptyResult::Child => {
-                        let _ = Command::new(&default_shell).exec();
+                    ForkptyResult::Child => {    
+                        let _ = Command::new(&default_shell)
+                            .exec();
                         panic!("exec() failed!");
                     },
                 }
@@ -89,20 +90,29 @@ pub fn spawn_pty_with_shell(default_shell: String) -> OwnedFd {
 pub fn monitor_fd(fd: OwnedFd, proxy: EventLoopProxy<SomethingInFd>) {
     thread::spawn(move || {
         let raw_fd = fd.as_raw_fd();
+        let mut buffer = vec![0; 4096];
         loop {
-            let mut buffer = vec![0; 4096];
             match read(raw_fd, &mut buffer) {
                 Ok(n) => {
-                    let _ = proxy.send_event(SomethingInFd {
-                        buffer: buffer,
+                    if n == 0 {
+                        break;
+                    }
+
+                    println!("{}", String::from_utf8(buffer[..n].to_vec()).unwrap());
+
+                    match proxy.send_event(SomethingInFd {
+                        buffer: buffer[..n].to_vec(),
                         number_of_elements_in_buffer: n,
-                    });
+                    }) {
+                        Ok(_) => (),
+                        Err(e) => println!("There has been an error while sending the event: {}", e),
+                    }
                 }
-                Err(_e) => {
-                    println!("There has been an error with the following error code: {}", _e);
+                Err(e) => {
+                    println!("There has been an error with the following error code: {}", e);
                 }
             }
-            thread::sleep(Duration::from_millis(50));   // Polling rate.
+            thread::sleep(Duration::from_millis(50));   // Polling rate. TODO: Change this to async or a similar approach instead of polling.
         }
     });
 }

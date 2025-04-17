@@ -39,6 +39,7 @@ struct State<'a> {
     
     text_string: &'a mut String,
     cursor_string: &'a mut String,
+    current_user_input_string: &'a mut String,
 
     target_framerate: Duration,
     delta_time: Instant,
@@ -165,39 +166,23 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                     Key::Named(k) => match k {
                         NamedKey::Escape => event_loop.exit(),
                         NamedKey::Delete => {
-                            // Remove the written text.
+                            // Clear the displayed text.
                             performer_mut.section_0.as_mut().unwrap().text[0].text.clear();
 
+                            // Clear the user input.
+                            self.current_user_input_string.clear();
+
                             // Reset the cursor.
-                            
                             performer_mut.section_1.as_mut().unwrap().text[0].text.clear();
                             performer_mut.section_1.as_mut().unwrap().text[0].text.push_str("█");
                         }
                         NamedKey::Enter => {
-                            let text = &mut performer_mut.section_0.as_mut().unwrap().text[0].text;
                             let cursor_text = &mut performer_mut.section_1.as_mut().unwrap().text[0].text;
 
-                            // NOTE: Define more native terminal commands like "exit" here, if necessary.
-
-                            match text.as_ref() {
-                                "exit" => event_loop.exit(),
-                                "clear" => {
-                                    *text = String::from("");
-                                },
-                                _ => ()
-                            }
-
-                            println!("{text}");
-
-                            // Insert a "\n" (newline) to the text section.
-
-                            text.push_str("\n");
-
-                            // Send the user input part of the text to the shell and show some output. TODO: Make it so that it only sends the user input.
-
-                            match write(performer_mut.pty_fd, text.as_bytes()) {
-                                Ok(_n) => (),
-                                Err(_e) => (),
+                            // Send the carriage return character to the master pty.
+                            match write(performer_mut.pty_fd, b"\r") {
+                                Ok(_) => (),
+                                Err(e) => println!("There has been an error writing to the master pty: {}", e),
                             }
 
                             // Also apply newline logic to the cursor.
@@ -207,11 +192,12 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                             }
                         }
                         NamedKey::Backspace => {
-                            let text = &mut performer_mut.section_0.as_mut().unwrap().text[0].text;
                             let cursor_text = &mut performer_mut.section_1.as_mut().unwrap().text[0].text;
 
-                            if !text.is_empty() {
-                                text.pop();
+                            // Send the backspace character to the master pty.
+                            match write(performer_mut.pty_fd, b"\x7f") {
+                                Ok(_) => (),
+                                Err(e) => println!("There has been an error writing to the master pty: {}", e)
                             }
 
                             // Move the cursor backward.
@@ -219,24 +205,33 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                             utils::move_cursor_left(cursor_text,1);
                         }
                         NamedKey::Space => {
-                            let text = &mut performer_mut.section_0.as_mut().unwrap().text[0].text;
                             let cursor_text = &mut performer_mut.section_1.as_mut().unwrap().text[0].text;
 
-                            text.push_str(" ");
+                            // Send the space character to the master pty.
+                            match write(performer_mut.pty_fd, b" ") {
+                                Ok(_) => (),
+                                Err(e) => println!("There has been an error writing to the master pty: {}", e),
+                            }
 
                             utils::move_cursor_right(cursor_text, 1);
                         }
 
                         NamedKey::ArrowLeft => {
+                            // Send the arrow left escape sequence to the master pty.
+                            match write(performer_mut.pty_fd, b"\x1b[D") {
+                                Ok(_) => (),
+                                Err(e) => println!("There has been an error writing to the master pty: {}", e),
+                            }
+
                             // Move the cursor backward.
                             utils::move_cursor_left(&mut performer_mut.section_1.as_mut().unwrap().text[0].text, 1);
                         }
 
                         NamedKey::ArrowRight => {
-                            // Don't move the cursor further forward, if we are right at the end of the written text.
-
-                            if performer_mut.section_1.as_ref().unwrap().text[0].text.len() > performer_mut.section_0.as_ref().unwrap().text[0].text.len() + 2 {
-                                return;
+                            // Send the arrow right escape sequence to the master pty.
+                            match write(performer_mut.pty_fd, b"\x1b[C") {
+                                Ok(_) => (),
+                                Err(e) => println!("There has been an error writing to the master pty: {}", e),
                             }
 
                             // Move the cursor forward.
@@ -248,16 +243,11 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                     Key::Character(char) => {
                         let c = char.as_str();
 
-                        let text = &mut performer_mut.section_0.as_mut().unwrap().text[0].text;
-                        
-                        text.push_str(c);
-
-                        /* performer_mut.section_0.as_mut().unwrap().text.insert(
-                            performer_mut.section_1.as_ref().unwrap().text.len() - 1,
-                            OwnedText::new(c.to_string())
-                                .with_scale(performer_mut.font_size)
-                                .with_color(performer_mut.font_color),
-                        ); */
+                        // Send the input character to the master pty.
+                        match write(performer_mut.pty_fd, c.as_bytes()) {
+                            Ok(_) => (),
+                            Err(e) => println!("There has been an error writing to the master pty: {}", e),
+                        }
 
                         // Move the cursor forward.
                         utils::move_cursor_right(&mut performer_mut.section_1.as_mut().unwrap().text[0].text, 1);
@@ -280,6 +270,9 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                     size *= 4.0 / 5.0
                 };
                 performer_mut.font_size = (size.clamp(3.0, 25000.0) * 2.0).round() / 2.0;
+
+                performer_mut.section_0.as_mut().unwrap().text[0].scale = performer_mut.font_size.into();
+                performer_mut.section_1.as_mut().unwrap().text[0].scale = performer_mut.font_size.into();
             }
 
             WindowEvent::RedrawRequested => {
@@ -300,7 +293,7 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                     Err(err) => panic!("{err}")
                 }
 
-                // TODO: This part is a little weird, probably because of the linux nvidia 550 driver.
+                // NOTE: This part is a little weird, probably because of the linux nvidia 550 driver.
             
                 let frame = match surface.get_current_texture() {
                     Ok(frame) => frame,
@@ -394,15 +387,13 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
 
 
 impl<'a> State<'a> {
-    fn new(fd: &'a OwnedFd, state_config: &'a StateConfig, content_text: &'a mut String, cursor_text: &'a mut String) -> Self {
+    fn new(fd: &'a OwnedFd, state_config: &'a StateConfig, content_text: &'a mut String, cursor_text: &'a mut String, current_user_input: &'a mut String) -> Self {
         let font_color = [0.9, 0.5, 0.5, 1.0];
 
         // Create the parser.
-
         let parser = Parser::new();
 
         // Create the state.
-
         State {
             performer: Some(performer::Performer {
                 window: None,
@@ -420,6 +411,7 @@ impl<'a> State<'a> {
 
             text_string: content_text,
             cursor_string: cursor_text,
+            current_user_input_string: current_user_input,
 
             // FPS and window updating:
             // change '60.0' if you want different FPS cap
@@ -452,20 +444,23 @@ fn main() {
     let default_shell = std::env::var("SHELL")
         .expect("Could not find default shell from $SHELL.");
 
+    let default_shell = String::from("/usr/bin/bash");  // TODO: Remove this after implementing ANSI escape sequences properly.
+
+    println!("{}", default_shell);
+
     let stdout_fd = utils::spawn_pty_with_shell(default_shell);
 
     utils::monitor_fd(stdout_fd.try_clone().unwrap(), event_loop_proxy);
 
     // Get the config.
-
     let state_config = utils::StateConfig::new();
 
-    // Create Strings to store the content text and the cursor text of the State.
-
+    // Create Strings to store the content text, cursor text, and the current user input of the State.
     let mut content_text = String::new();
     let mut cursor_text = String::new();
+    let mut current_user_input = String::new();
 
-    let mut state = State::new(&stdout_fd, &state_config, &mut content_text, &mut cursor_text);
+    let mut state = State::new(&stdout_fd, &state_config, &mut content_text, &mut cursor_text, &mut current_user_input);
 
     let _ = event_loop.run_app(&mut state);
 }
