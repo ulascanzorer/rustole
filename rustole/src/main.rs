@@ -192,6 +192,7 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                             }
                         }
                         NamedKey::Backspace => {
+                            let text = &mut performer_mut.section_0.as_mut().unwrap().text[0].text;
                             let cursor_text = &mut performer_mut.section_1.as_mut().unwrap().text[0].text;
 
                             // Send the backspace character to the master pty.
@@ -203,6 +204,10 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                             // Move the cursor backward.
 
                             utils::move_cursor_left(cursor_text,1);
+
+                            // Also delete one character from the frontend.
+                            text.pop();
+
                         }
                         NamedKey::Space => {
                             let cursor_text = &mut performer_mut.section_1.as_mut().unwrap().text[0].text;
@@ -372,10 +377,6 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: utils::SomethingInFd) {
         let buffer = event.buffer;
         let number_of_elements_in_buffer = event.number_of_elements_in_buffer;
-
-        let buffer_string = String::from_utf8(buffer.clone()).unwrap();
-
-        println!("This is what I have received from the shell: {}", buffer_string);
 
         self.parser.advance(self.performer.as_mut().unwrap(), &buffer[..number_of_elements_in_buffer]);
 

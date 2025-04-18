@@ -7,6 +7,7 @@ use std::thread;
 use std::time::Duration;
 use std::fs;
 
+use nix::errno::Errno;
 use nix::pty::{forkpty, ForkptyResult};
 use winit::event_loop::EventLoopProxy;
 
@@ -109,7 +110,10 @@ pub fn monitor_fd(fd: OwnedFd, proxy: EventLoopProxy<SomethingInFd>) {
                     }
                 }
                 Err(e) => {
-                    println!("There has been an error with the following error code: {}", e);
+                    match e {
+                        Errno::EIO => std::process::exit(0), // TODO: Implement graceful quiting here.
+                        anything_else => println!("There has been an error with the following error code: {}", anything_else)
+                    }
                 }
             }
             thread::sleep(Duration::from_millis(50));   // Polling rate. TODO: Change this to async or a similar approach instead of polling.

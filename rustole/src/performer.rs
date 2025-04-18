@@ -35,8 +35,12 @@ impl<'a> Perform for Performer<'a> {
     }
 
     fn execute(&mut self, _byte: u8) {
-        // unimplemented!();
-        ();
+        let text = &mut self.section_0.as_mut().unwrap().text[0].text;
+
+        // If it is a line feed character, render a new line.
+        if _byte == 10 {
+            text.push('\n');
+        }
     }
 
     fn csi_dispatch(&mut self, params: &Params, _intermediates: &[u8], _ignore: bool, action: char,) {
