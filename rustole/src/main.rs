@@ -442,7 +442,7 @@ fn main() {
     let event_loop_proxy = event_loop.create_proxy();
 
     // Setup pty.
-    let default_shell = std::env::var("SHELL")
+    let _default_shell = std::env::var("SHELL")
         .expect("Could not find default shell from $SHELL.");
 
     let default_shell = String::from("/usr/bin/bash");  // TODO: Remove this after implementing ANSI escape sequences properly.
