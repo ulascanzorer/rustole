@@ -9,7 +9,7 @@ mod performer;
 
 use ctx::Ctx;
 
-use glyph_brush::ab_glyph::FontRef;
+use glyph_brush::ab_glyph::{FontRef, Font, ScaleFont};
 use utils::StateConfig;
 use vte::Parser;
 
@@ -36,10 +36,8 @@ use winit::window::Window;
 struct State<'a> {
     performer: Option<performer::Performer<'a>>,
     parser: Parser,
-    
     text_string: &'a mut String,
-    cursor_string: &'a mut String,
-    current_user_input_string: &'a mut String,
+
 
     target_framerate: Duration,
     delta_time: Instant,
@@ -64,12 +62,19 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
         let ctx = self.ctx.as_ref().unwrap();
         let device = &ctx.device;
         let config = &ctx.config;
-    
         
         let performer_mut = self.performer.as_mut().unwrap();
 
         let font_slice = performer_mut.font.as_slice();
 
+        // Save the character width of the given font with the given scale in the performer.
+        let font_ref = FontRef::try_from_slice(font_slice).unwrap();
+        let scaled_font = font_ref.as_scaled(performer_mut.font_size);
+        let char_width = scaled_font.h_advance(font_ref.glyph_id(' '));
+
+        performer_mut.char_width = char_width;
+
+        
         let brush: Option<TextBrush<FontRef<'a>>> = Some(BrushBuilder::using_font_bytes(font_slice).unwrap().build(
             device,
             config.width,
@@ -78,7 +83,7 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
         ));
 
 
-        let section_0 = Some(
+        let text_section = Some(
             Section::default()
                 .add_text(
                     Text::new(self.text_string)
@@ -96,12 +101,10 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
 
         // Push the initial cursor to the cursor_string.
 
-        self.cursor_string.push_str("█");
-
-        let section_1 = Some(
+        let cursor_section = Some(
             Section::default()
                 .add_text(
-                    Text::new(self.cursor_string)
+                    Text::new("█")
                         .with_scale(performer_mut.font_size)
                         .with_color([0.6, 0.6, 0.5, 0.5]),
                 )
@@ -118,8 +121,8 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
 
         performer_mut.brush = brush;
         performer_mut.window = window;
-        performer_mut.section_0 = section_0;
-        performer_mut.section_1 = section_1;
+        performer_mut.text_section = text_section;
+        performer_mut.cursor_section = cursor_section;
     }
 
     fn window_event(
@@ -142,11 +145,11 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
 
                 let performer_mut = self.performer.as_mut().unwrap();
 
-                performer_mut.section_0.as_mut().unwrap().bounds = (config.width as f32 * 0.95, config.height as _);
-                performer_mut.section_0.as_mut().unwrap().screen_position.1 = config.height as f32 * performer_mut.text_offset_from_top_as_percentage;
+                performer_mut.text_section.as_mut().unwrap().bounds = (config.width as f32 * 0.95, config.height as _);
+                performer_mut.text_section.as_mut().unwrap().screen_position.1 = config.height as f32 * performer_mut.text_offset_from_top_as_percentage;
 
-                performer_mut.section_1.as_mut().unwrap().bounds = (config.width as f32 * 0.95, config.height as _);
-                performer_mut.section_1.as_mut().unwrap().screen_position.1 = config.height as f32 * performer_mut.text_offset_from_top_as_percentage;
+                performer_mut.cursor_section.as_mut().unwrap().bounds = (config.width as f32 * 0.95, config.height as _);
+                performer_mut.cursor_section.as_mut().unwrap().screen_position.1 = config.height as f32 * performer_mut.text_offset_from_top_as_percentage;
 
                 performer_mut.brush.as_mut().unwrap().resize_view(config.width as f32, config.height as f32, queue);
             }
@@ -167,17 +170,14 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                         NamedKey::Escape => event_loop.exit(),
                         NamedKey::Delete => {
                             // Clear the displayed text.
-                            performer_mut.section_0.as_mut().unwrap().text[0].text.clear();
-
-                            // Clear the user input.
-                            self.current_user_input_string.clear();
+                            performer_mut.text_section.as_mut().unwrap().text[0].text.clear();
 
                             // Reset the cursor.
-                            performer_mut.section_1.as_mut().unwrap().text[0].text.clear();
-                            performer_mut.section_1.as_mut().unwrap().text[0].text.push_str("█");
+                            performer_mut.cursor_section.as_mut().unwrap().text[0].text.clear();
+                            performer_mut.cursor_section.as_mut().unwrap().text[0].text.push('█');
                         }
                         NamedKey::Enter => {
-                            let cursor_text = &mut performer_mut.section_1.as_mut().unwrap().text[0].text;
+                            // let cursor_text = &mut performer_mut.cursor_section.as_mut().unwrap().text[0].text;
 
                             // Send the carriage return character to the master pty.
                             match write(performer_mut.pty_fd, b"\r") {
@@ -187,13 +187,12 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
 
                             // Also apply newline logic to the cursor.
 
-                            if let Some((last_char_idx, _)) = cursor_text.char_indices().rev().nth(0) {
+                            /* if let Some((last_char_idx, _)) = cursor_text.char_indices().rev().nth(0) {
                                 cursor_text.insert(last_char_idx, '\n');
-                            }
+                            } */
                         }
                         NamedKey::Backspace => {
-                            let text = &mut performer_mut.section_0.as_mut().unwrap().text[0].text;
-                            let cursor_text = &mut performer_mut.section_1.as_mut().unwrap().text[0].text;
+                            let text = &mut performer_mut.text_section.as_mut().unwrap().text[0].text;
 
                             // Send the backspace character to the master pty.
                             match write(performer_mut.pty_fd, b"\x7f") {
@@ -201,24 +200,18 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                                 Err(e) => println!("There has been an error writing to the master pty: {}", e)
                             }
 
-                            // Move the cursor backward.
-
-                            utils::move_cursor_left(cursor_text,1);
-
                             // Also delete one character from the frontend.
                             text.pop();
 
+                            // Move the cursor one character backward.
+                            utils::move_cursor_left(performer_mut);
                         }
                         NamedKey::Space => {
-                            let cursor_text = &mut performer_mut.section_1.as_mut().unwrap().text[0].text;
-
                             // Send the space character to the master pty.
                             match write(performer_mut.pty_fd, b" ") {
                                 Ok(_) => (),
                                 Err(e) => println!("There has been an error writing to the master pty: {}", e),
                             }
-
-                            utils::move_cursor_right(cursor_text, 1);
                         }
 
                         NamedKey::ArrowLeft => {
@@ -229,7 +222,7 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                             }
 
                             // Move the cursor backward.
-                            utils::move_cursor_left(&mut performer_mut.section_1.as_mut().unwrap().text[0].text, 1);
+                            utils::move_cursor_left(performer_mut);
                         }
 
                         NamedKey::ArrowRight => {
@@ -240,7 +233,7 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                             }
 
                             // Move the cursor forward.
-                            utils::move_cursor_right(&mut performer_mut.section_1.as_mut().unwrap().text[0].text, 1);
+                            utils::move_cursor_right(performer_mut);
                         }
                         _ => ()
                     },
@@ -253,9 +246,6 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                             Ok(_) => (),
                             Err(e) => println!("There has been an error writing to the master pty: {}", e),
                         }
-
-                        // Move the cursor forward.
-                        utils::move_cursor_right(&mut performer_mut.section_1.as_mut().unwrap().text[0].text, 1);
                     },
                     
                     _ => (),
@@ -276,8 +266,8 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                 };
                 performer_mut.font_size = (size.clamp(3.0, 25000.0) * 2.0).round() / 2.0;
 
-                performer_mut.section_0.as_mut().unwrap().text[0].scale = performer_mut.font_size.into();
-                performer_mut.section_1.as_mut().unwrap().text[0].scale = performer_mut.font_size.into();
+                performer_mut.text_section.as_mut().unwrap().text[0].scale = performer_mut.font_size.into();
+                performer_mut.cursor_section.as_mut().unwrap().text[0].scale = performer_mut.font_size.into();
             }
 
             WindowEvent::RedrawRequested => {
@@ -289,11 +279,11 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                 let device = &ctx.device;
                 let config = &ctx.config;
                 let surface = &ctx.surface;
-                let section_0 = performer.section_0.as_ref().unwrap();
-                let section_1 = performer.section_1.as_ref().unwrap();
+                let text_section = performer.text_section.as_ref().unwrap();
+                let cursor_section = performer.cursor_section.as_ref().unwrap();
 
-                // NOTE: Section order in the brush queue should be [section_0, section_1], once section_1 is implemented as the cursor, so that it stays on top of the text section.
-                match brush.queue(device, queue, [section_0, section_1]) {
+                // NOTE: Section order in the brush queue should be [text_section, cursor_section], once cursor_section is implemented as the cursor, so that it stays on top of the text section.
+                match brush.queue(device, queue, [text_section, cursor_section]) {
                     Ok(_) => (),
                     Err(err) => panic!("{err}")
                 }
@@ -388,7 +378,7 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
 
 
 impl<'a> State<'a> {
-    fn new(fd: &'a OwnedFd, state_config: &'a StateConfig, content_text: &'a mut String, cursor_text: &'a mut String, current_user_input: &'a mut String) -> Self {
+    fn new(fd: &'a OwnedFd, state_config: &'a StateConfig, content_text: &'a mut String) -> Self {
         let font_color = [0.9, 0.5, 0.5, 1.0];
 
         // Create the parser.
@@ -400,19 +390,18 @@ impl<'a> State<'a> {
                 window: None,
                 font: &state_config.font,
                 brush: None,
+                char_width: 0.0,
                 font_size: state_config.font_size,
                 font_color: font_color,
-                section_0: None,
+                text_section: None,
                 text_offset_from_left: 20.,
                 text_offset_from_top_as_percentage: 0.02,
-                section_1: None,
+                cursor_section: None,
                 pty_fd: &fd,
             }),
             parser: parser,
 
             text_string: content_text,
-            cursor_string: cursor_text,
-            current_user_input_string: current_user_input,
 
             // FPS and window updating:
             // change '60.0' if you want different FPS cap
@@ -445,7 +434,7 @@ fn main() {
     let _default_shell = std::env::var("SHELL")
         .expect("Could not find default shell from $SHELL.");
 
-    let default_shell = String::from("/usr/bin/bash");  // TODO: Remove this after implementing ANSI escape sequences properly.
+    let default_shell = String::from("/usr/bin/bash");  // TODO: Remove this after implementing ANSI escape sequences properly (so we can use zsh with all its fancy features).
 
     println!("{}", default_shell);
 
@@ -456,12 +445,10 @@ fn main() {
     // Get the config.
     let state_config = utils::StateConfig::new();
 
-    // Create Strings to store the content text, cursor text, and the current user input of the State.
+    // Create a String to store the content text of the State.
     let mut content_text = String::new();
-    let mut cursor_text = String::new();
-    let mut current_user_input = String::new();
 
-    let mut state = State::new(&stdout_fd, &state_config, &mut content_text, &mut cursor_text, &mut current_user_input);
+    let mut state = State::new(&stdout_fd, &state_config, &mut content_text);
 
     let _ = event_loop.run_app(&mut state);
 }

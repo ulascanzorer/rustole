@@ -15,6 +15,8 @@ use nix::unistd::read;
 
 use serde::Deserialize;
 
+use crate::performer::Performer;
+
 
 #[derive(Clone, Debug)]
 pub struct SomethingInFd {
@@ -131,24 +133,16 @@ pub fn expand_tilde(path: &str) -> String {
     }
 }
 
-pub fn move_cursor_right(cursor_text: &mut String, number_of_chars: usize) {
-    // NOTE: Here, we used to add an example character with 0 opacity as "space", because using an actual space character can cause problems
-    // in line breaks, which leads to the cursor falling behind at each new line :).
+pub fn move_cursor_right(performer_mut: &mut Performer) {
+    let cursor_section = performer_mut.cursor_section.as_mut().unwrap();
+    let char_width = performer_mut.char_width;
 
-   // TODO: Fix the space vs 0 opacity character problem with the new approach.
-
-    cursor_text.pop();
-
-    for _ in 0..number_of_chars {
-        cursor_text.push(' ');
-    }
-
-    cursor_text.push_str("█");
+    cursor_section.screen_position.0 += char_width;
 }
 
-pub fn move_cursor_left(cursor_text: &mut String, number_of_chars: usize) {
-    let truncation_idx = cursor_text.char_indices().rev().nth(number_of_chars).map(|(i, _)| i).unwrap_or(0);
+pub fn move_cursor_left(performer_mut: &mut Performer) {
+    let cursor_section = performer_mut.cursor_section.as_mut().unwrap();
+    let char_width = performer_mut.char_width;
 
-    cursor_text.truncate(truncation_idx);
-    cursor_text.push_str("█");
+    cursor_section.screen_position.0 -= char_width;
 }
