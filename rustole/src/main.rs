@@ -179,8 +179,6 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                             cursor_section.screen_position.1 = text_section.screen_position.1;
                         }
                         NamedKey::Enter => {
-                            // let cursor_text = &mut performer_mut.cursor_section.as_mut().unwrap().text[0].text;
-
                             // Send the carriage return character to the master pty.
                             match write(performer_mut.pty_fd, b"\r") {
                                 Ok(_) => (),
@@ -230,6 +228,20 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
 
                             // Move the cursor forward.
                             utils::move_cursor_right(performer_mut);
+                        }
+                        NamedKey::ArrowUp => {
+                            // Send the arrow up escape sequence to the master pty.
+                            match write(performer_mut.pty_fd, b"\x1b[A") {
+                                Ok(_) => (),
+                                Err(e) => println!("There has been an error writing to the master pty: {}", e),
+                            }
+                        }
+                        NamedKey::ArrowDown => {
+                            // Send the arrow down escape sequence to the master pty.
+                            match write(performer_mut.pty_fd, b"\x1b[B") {
+                                Ok(_) => (),
+                                Err(e) => println!("There has been an error writing to the master pty: {}", e),
+                            }
                         }
                         _ => ()
                     },
