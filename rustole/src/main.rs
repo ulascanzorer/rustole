@@ -38,7 +38,6 @@ struct State<'a> {
     parser: Parser,
     text_string: &'a mut String,
 
-
     target_framerate: Duration,
     delta_time: Instant,
     fps_update_time: Instant,
@@ -173,8 +172,11 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                             performer_mut.text_section.as_mut().unwrap().text[0].text.clear();
 
                             // Reset the cursor.
-                            performer_mut.cursor_section.as_mut().unwrap().text[0].text.clear();
-                            performer_mut.cursor_section.as_mut().unwrap().text[0].text.push('█');
+                            let cursor_section = performer_mut.cursor_section.as_mut().unwrap();
+                            let text_section = performer_mut.text_section.as_mut().unwrap();
+
+                            cursor_section.screen_position.0 = performer_mut.text_offset_from_left;
+                            cursor_section.screen_position.1 = text_section.screen_position.1;
                         }
                         NamedKey::Enter => {
                             // let cursor_text = &mut performer_mut.cursor_section.as_mut().unwrap().text[0].text;
@@ -184,12 +186,6 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                                 Ok(_) => (),
                                 Err(e) => println!("There has been an error writing to the master pty: {}", e),
                             }
-
-                            // Also apply newline logic to the cursor.
-
-                            /* if let Some((last_char_idx, _)) = cursor_text.char_indices().rev().nth(0) {
-                                cursor_text.insert(last_char_idx, '\n');
-                            } */
                         }
                         NamedKey::Backspace => {
                             let text = &mut performer_mut.text_section.as_mut().unwrap().text[0].text;
