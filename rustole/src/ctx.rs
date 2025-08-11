@@ -17,11 +17,13 @@ impl Ctx {
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             backends,
             flags: wgpu::InstanceFlags::default(),
-            backend_options: wgpu::BackendOptions { 
-                gl:  wgpu::GlBackendOptions { gles_minor_version: wgpu::Gles3MinorVersion::Automatic },
+            backend_options: wgpu::BackendOptions {
+                gl: wgpu::GlBackendOptions {
+                    gles_minor_version: wgpu::Gles3MinorVersion::Automatic,
+                },
                 dx12: wgpu::Dx12BackendOptions {
-                    shader_compiler: wgpu::Dx12Compiler::Fxc
-                }
+                    shader_compiler: wgpu::Dx12Compiler::Fxc,
+                },
             },
         });
 
@@ -30,16 +32,22 @@ impl Ctx {
         let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             compatible_surface: Some(&surface),
             ..Default::default()
-        })).expect("No adapters found!");
+        }))
+        .expect("No adapters found!");
 
-        let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-            label: Some("Device"),
-            required_features: wgpu::Features::empty(),
-            required_limits: wgpu::Limits::default(),
-            memory_hints: wgpu::MemoryHints::default(),
-        }, None)).unwrap();
+        let (device, queue) = block_on(adapter.request_device(
+            &wgpu::DeviceDescriptor {
+                label: Some("Device"),
+                required_features: wgpu::Features::empty(),
+                required_limits: wgpu::Limits::default(),
+                memory_hints: wgpu::MemoryHints::default(),
+            },
+            None,
+        ))
+        .unwrap();
 
-        let config = surface.get_default_config(&adapter, size.width, size.height)
+        let config = surface
+            .get_default_config(&adapter, size.width, size.height)
             .expect("Surface isn't supported by adapter.");
 
         surface.configure(&device, &config);
@@ -48,7 +56,7 @@ impl Ctx {
             device,
             queue,
             surface,
-            config
+            config,
         }
     }
 }

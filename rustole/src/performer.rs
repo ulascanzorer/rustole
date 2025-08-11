@@ -13,85 +13,154 @@ pub struct Performer<'a> {
     pub font: &'a Vec<u8>,
     pub brush: Option<TextBrush<FontRef<'a>>>,
     pub char_width: f32,
+    pub cursor_index: usize,
+
     pub font_size: f32,
     pub font_color: [f32; 4],
-    pub text_section: Option<OwnedSection>,    // Our text section.
+    pub text_section: Option<OwnedSection>, // Our text section.
     pub text_offset_from_left: f32,
     pub text_offset_from_top_as_percentage: f32,
-    pub cursor_section: Option<OwnedSection>,    // Our cursor section (the unicode character "█").
-    pub pty_fd: &'a OwnedFd,    // We will write to this file descriptor, what we write here will be read by the shell on the other side.
+    pub cursor_section: Option<OwnedSection>, // Our cursor section (the unicode character "█").
+    pub pty_fd: &'a OwnedFd, // We will write to this file descriptor, what we write here will be read by the shell on the other side.
 }
 
 impl<'a> Perform for Performer<'a> {
     fn print(&mut self, c: char) {
         let text = &mut self.text_section.as_mut().unwrap().text[0].text;
 
-        text.push(c);
+        if self.cursor_index <= text.len() {
+            text.insert(self.cursor_index, c);
+        }
 
         utils::move_cursor_right(self);
+        self.cursor_index = self.cursor_index + 1;
     }
 
-    fn execute(&mut self, _byte: u8) {
-        let text = &mut self.text_section.as_mut().unwrap().text[0].text;
+    fn execute(&mut self, byte: u8) {
+        println!("This is execute: {}", byte);
+        match byte {
+            b'\n' => {
+                let text = &mut self.text_section.as_mut().unwrap().text[0].text;
 
-        // If it is a line feed character, render a new line.
-        if _byte == 10 {
-            text.push('\n');
+                // Insert a newline.
 
-            // Also update the cursor.
-            self.cursor_section.as_mut().unwrap().screen_position.0 = self.text_offset_from_left;
-            self.cursor_section.as_mut().unwrap().screen_position.1 += self.font_size;
+                if self.cursor_index <= text.len() {
+                    text.insert(self.cursor_index, '\n');
+                }
+                self.cursor_index += 1;
+
+                // Move cursor visually to the next line.
+                let cursor = self.cursor_section.as_mut().unwrap();
+                cursor.screen_position.0 = self.text_offset_from_left;
+                cursor.screen_position.1 += self.font_size;
+            }
+            b'\r' => {
+                // Carriage return: move to start of the line
+                // You could scan back to previous '\n' to determine position
+                // For simplicity, just set to start of buffer (improve later)
+                self.cursor_index = 0;
+            }
+            0x08 => {
+                // Backspace.
+                if self.cursor_index > 0 {
+                    /* if self.cursor_index < text.len() {
+                        let _ = text.remove(self.cursor_index);
+                    } */
+                    self.cursor_index -= 1;
+                    utils::move_cursor_left(self);
+                }
+            }
+            _ => {
+                // Unhandled control byte. TODO: Improve this.
+            }
         }
     }
 
-    fn csi_dispatch(&mut self, params: &Params, _intermediates: &[u8], _ignore: bool, action: char,) {
+    fn csi_dispatch(
+        &mut self,
+        params: &Params,
+        _intermediates: &[u8],
+        _ignore: bool,
+        action: char,
+    ) {
+        println!("This is the csi_dispatch: {}", action);
         match action {
             'm' => {
                 for param in params.iter() {
                     match param {
                         [0] => {
-                            self.font_color = [1., 1., 1., 1.];  // Make font color white (this is the reset option).
+                            self.font_color = [1., 1., 1., 1.]; // Make font color white (this is the reset option).
                         }
                         [1] => {
                             ();
                         }
                         [30] => {
-                            self.font_color = [0., 0., 0., 1.];  // Make font color black.
+                            self.font_color = [0., 0., 0., 1.]; // Make font color black.
                         }
                         [31] => {
-                            self.font_color = [1., 0., 0., 1.];  // Make font color red.
+                            self.font_color = [1., 0., 0., 1.]; // Make font color red.
                         }
                         [32] => {
-                            self.font_color = [0., 1., 0., 1.];  // Make font color green.
+                            self.font_color = [0., 1., 0., 1.]; // Make font color green.
                         }
                         [33] => {
-                            self.font_color = [1., 1., 0., 1.];  // Make font color yellow.
+                            self.font_color = [1., 1., 0., 1.]; // Make font color yellow.
                         }
                         [34] => {
-                            self.font_color = [0., 0., 1., 1.];  // Make font color blue.
+                            self.font_color = [0., 0., 1., 1.]; // Make font color blue.
                         }
                         [35] => {
-                            self.font_color = [1., 0., 1., 1.];  // Make font color magenta.
+                            self.font_color = [1., 0., 1., 1.]; // Make font color magenta.
                         }
                         [36] => {
-                            self.font_color = [0., 1., 1., 1.];  // Make font color cyan.
+                            self.font_color = [0., 1., 1., 1.]; // Make font color cyan.
                         }
                         [37] => {
-                            self.font_color = [1., 1., 1., 1.];  // Make font color white.
+                            self.font_color = [1., 1., 1., 1.]; // Make font color white.
                         }
                         [39] => {
-                            self.font_color = [1., 1., 1., 1.];  // Make font color white (this is the default option).
+                            self.font_color = [1., 1., 1., 1.]; // Make font color white (this is the default option).
                         }
-                        _ => ()
+                        _ => (),
                     }
                 }
             }
-            _ => ()
+            // Move the cursor right.
+            'C' => {
+                // TODO.
+                /* println!("I am at cursor right!");
+                let offset = params.iter().flatten().next().copied().unwrap_or(1);
+                self.cursor_index = (self.cursor_index + offset as usize)
+                .min(self.text_section.as_ref().unwrap().text[0].text.len());
+
+                for _ in 0..offset {    // TODO: Change this so that we don't have a loop and perform this in one go for any given offset.
+                    utils::move_cursor_right(self);
+                } */
+            }
+            // Move the cursor left.
+            'D' => {
+                // TODO.
+                println!("I am at cursor left!");
+                let offset = params.iter().flatten().next().copied().unwrap_or(1);
+                self.cursor_index = self.cursor_index.saturating_sub(offset as usize);
+
+                for _ in 0..offset {
+                    utils::move_cursor_left(self);
+                }
+            }
+            // Delete a single character in the line.
+            'K' => {
+                let text = &mut self.text_section.as_mut().unwrap().text[0].text;
+                if self.cursor_index < text.len() {
+                    let _ = text.remove(self.cursor_index);
+                }
+            }
+            _ => (),
         }
     }
 
-    fn esc_dispatch(&mut self, _intermediates: &[u8], _ignore: bool, _byte: u8) {
-        ();
+    fn esc_dispatch(&mut self, _intermediates: &[u8], _ignore: bool, byte: u8) {
+        println!("This is the last byte of the escape dispatch: {}", byte);
     }
 
     fn hook(&mut self, _params: &Params, _intermediates: &[u8], _ignore: bool, _action: char) {
