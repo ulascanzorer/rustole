@@ -7,6 +7,9 @@ pub mod utils;
 #[path = "performer.rs"]
 mod performer;
 
+#[path = "screen.rs"]
+mod screen;
+
 use ctx::Ctx;
 
 use glyph_brush::ab_glyph::{Font, FontRef, ScaleFont};
@@ -26,6 +29,8 @@ use winit::event::{KeyEvent, MouseScrollDelta};
 use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::{Key, NamedKey};
 use winit::window::Window;
+
+use crate::state::screen::Screen;
 
 
 // The State struct, which holds the state of the application and acts as the application handler for
@@ -88,7 +93,7 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                 .with_layout(Layout::default().line_breaker(BuiltInLineBreaker::AnyCharLineBreaker))
                 .with_screen_position((
                     performer_mut.text_offset_from_left,
-                    config.height as f32 * performer_mut.text_offset_from_top_as_percentage,
+                    performer_mut.text_offset_from_top_as_percentage,
                 ))
                 .to_owned(),
         );
@@ -106,7 +111,7 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                 .with_layout(Layout::default().line_breaker(BuiltInLineBreaker::AnyCharLineBreaker))
                 .with_screen_position((
                     performer_mut.text_offset_from_left,
-                    config.height as f32 * performer_mut.text_offset_from_top_as_percentage / 2.,
+                    performer_mut.text_offset_from_top_as_percentage / 2.,
                 ))
                 .to_owned(),
         );
