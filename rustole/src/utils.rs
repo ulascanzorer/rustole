@@ -15,7 +15,7 @@ use nix::unistd::read;
 
 use serde::Deserialize;
 
-use crate::performer::Performer;
+use crate::state::performer::Performer;
 
 #[derive(Clone, Debug)]
 pub struct SomethingInFd {
@@ -108,7 +108,8 @@ pub fn monitor_fd(fd: OwnedFd, proxy: EventLoopProxy<SomethingInFd>) {
                         .flat_map(|&b| std::ascii::escape_default(b))
                         .map(|c| c as char)
                         .collect();
-                    println!("{escaped}");
+
+                    println!("SHELL: {escaped}");
 
                     match proxy.send_event(SomethingInFd {
                         buffer: buffer[..n].to_vec(),

@@ -33,7 +33,7 @@ impl<'a> Perform for Performer<'a> {
         }
 
         utils::move_cursor_right(self);
-        self.cursor_index = self.cursor_index + 1;
+        self.cursor_index += 1;
     }
 
     fn execute(&mut self, byte: u8) {
@@ -45,6 +45,7 @@ impl<'a> Perform for Performer<'a> {
                 // Insert a newline.
 
                 if self.cursor_index <= text.len() {
+                    println!("Newline time!");
                     text.insert(self.cursor_index, '\n');
                 }
                 self.cursor_index += 1;
