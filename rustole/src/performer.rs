@@ -5,6 +5,8 @@ use vte::{Params, Perform};
 use wgpu_text::TextBrush;
 use winit::window::Window;
 
+use crate::state::screen::Screen;
+
 #[path = "utils.rs"]
 mod utils;
 
@@ -21,15 +23,19 @@ pub struct Performer<'a> {
     pub text_offset_from_left: f32,
     pub text_offset_from_top_as_percentage: f32,
     pub cursor_section: Option<OwnedSection>, // Our cursor section (the unicode character "█").
+    pub screen: Screen,
     pub pty_fd: &'a OwnedFd, // We will write to this file descriptor, what we write here will be read by the shell on the other side.
 }
 
 impl<'a> Perform for Performer<'a> {
     fn print(&mut self, c: char) {
-        let text = &mut self.text_section.as_mut().unwrap().text[0].text;
+        let screen = &mut self.screen;
+        let text = &mut screen.lines[screen.row_index].text[0].text;
 
         if self.cursor_index <= text.len() {
-            text.insert(self.cursor_index, c);
+            println!("This is the latest column_index: {}", screen.column_index);
+            text.insert(screen.column_index, c);
+            screen.column_index += 1;
         }
 
         utils::move_cursor_right(self);
@@ -40,14 +46,14 @@ impl<'a> Perform for Performer<'a> {
         println!("This is execute: {}", byte);
         match byte {
             b'\n' => {
-                let text = &mut self.text_section.as_mut().unwrap().text[0].text;
+                let screen = &mut self.screen;
 
-                // Insert a newline.
+                // Go down to the next row.
 
-                if self.cursor_index <= text.len() {
-                    println!("Newline time!");
-                    text.insert(self.cursor_index, '\n');
-                }
+                screen.row_index += 1;
+
+                println!("Newline time!");
+
                 self.cursor_index += 1;
 
                 // Move cursor visually to the next line.
@@ -59,6 +65,7 @@ impl<'a> Perform for Performer<'a> {
                 // Carriage return: move to start of the line
                 // You could scan back to previous '\n' to determine position
                 // For simplicity, just set to start of buffer (improve later)
+                self.screen.column_index = 0;
                 self.cursor_index = 0;
             }
             0x08 => {

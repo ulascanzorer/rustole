@@ -1,4 +1,4 @@
-#[path="state.rs"]
+#[path = "state.rs"]
 mod state;
 
 use winit::event_loop::{self, ControlFlow};
@@ -24,7 +24,7 @@ fn main() {
     let event_loop_proxy = event_loop.create_proxy();
 
     // Setup pty.
-    let _default_shell = std::env::var("SHELL").expect("Could not find default shell from $SHELL.");
+    // let _default_shell = std::env::var("SHELL").expect("Could not find default shell from $SHELL.");
 
     let default_shell = String::from("/usr/bin/bash"); // TODO: Remove this after implementing ANSI escape sequences properly (so we can use for example zsh with all its fancy features).
 

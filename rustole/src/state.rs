@@ -13,6 +13,7 @@ mod screen;
 use ctx::Ctx;
 
 use glyph_brush::ab_glyph::{Font, FontRef, ScaleFont};
+use glyph_brush::OwnedSection;
 use vte::Parser;
 
 use nix::unistd::write;
@@ -31,7 +32,6 @@ use winit::keyboard::{Key, NamedKey};
 use winit::window::Window;
 
 use crate::state::screen::Screen;
-
 
 // The State struct, which holds the state of the application and acts as the application handler for
 // all the events that can happen to our window that we want to react to.
@@ -241,10 +241,6 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                                     e
                                 ),
                             }
-
-                            // Move the cursor backward.
-                            // utils::move_cursor_left(performer_mut);
-                            // performer_mut.cursor_index -= 1;
                         }
 
                         NamedKey::ArrowRight => {
@@ -256,10 +252,6 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                                     e
                                 ),
                             }
-
-                            // Move the cursor forward.
-                            // utils::move_cursor_right(performer_mut);
-                            // performer_mut.cursor_index += 1;
                         }
                         NamedKey::ArrowUp => {
                             // Send the arrow up escape sequence to the master pty.
@@ -334,7 +326,10 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                 let cursor_section = performer.cursor_section.as_ref().unwrap();
 
                 // NOTE: Section order in the brush queue should be [text_section, cursor_section], once cursor_section is implemented as the cursor, so that it stays on top of the text section.
-                match brush.queue(device, queue, [text_section, cursor_section]) {
+                let mut screen_section_refs: Vec<&OwnedSection> = performer.screen.lines.iter().collect();
+                //screen_section_refs.push(text_section);
+                screen_section_refs.push(cursor_section);
+                match brush.queue(device, queue, screen_section_refs) {
                     Ok(_) => (),
                     Err(err) => panic!("{err}"),
                 }
@@ -346,11 +341,10 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                     Err(_) => {
                         surface.configure(device, config);
                         return ();
-                    }
-                    // {
-                    //    surface.configure(device, config);
-                    //    surface.get_current_texture().expect("Failed to acquire next surface texture!")
-                    //}
+                    } // {
+                      //    surface.configure(device, config);
+                      //    surface.get_current_texture().expect("Failed to acquire next surface texture!")
+                      //}
                 };
 
                 let view = frame
@@ -434,7 +428,11 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
 }
 
 impl<'a> State<'a> {
-    pub fn new(fd: &'a OwnedFd, state_config: &'a utils::StateConfig, content_text: &'a mut String) -> Self {
+    pub fn new(
+        fd: &'a OwnedFd,
+        state_config: &'a utils::StateConfig,
+        content_text: &'a mut String,
+    ) -> Self {
         let font_color = [0.9, 0.5, 0.5, 1.0];
 
         // Create the parser.
@@ -454,6 +452,7 @@ impl<'a> State<'a> {
                 text_offset_from_left: 20.,
                 text_offset_from_top_as_percentage: 0.02,
                 cursor_section: None,
+                screen: Screen::new(10, 100, state_config.font_size, 1920, 1080, 20., 0.02),
                 pty_fd: &fd,
             }),
             parser: parser,
