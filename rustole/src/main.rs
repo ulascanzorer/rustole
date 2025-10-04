@@ -37,10 +37,7 @@ fn main() {
     // Get the config.
     let state_config = state::utils::StateConfig::new();
 
-    // Create a String to store the content text of the State. // TODO: Restructure this part, so that we manage a 2d array instead of a single string.
-    let mut content_text = String::new();
-
-    let mut state = state::State::new(&stdout_fd, &state_config, &mut content_text);
+    let mut state = state::State::new(&stdout_fd, &state_config);
 
     let _ = event_loop.run_app(&mut state);
 }

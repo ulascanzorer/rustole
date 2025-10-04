@@ -19,7 +19,6 @@ pub struct Performer<'a> {
 
     pub font_size: f32,
     pub font_color: [f32; 4],
-    pub text_section: Option<OwnedSection>, // Our text section.
     pub text_offset_from_left: f32,
     pub text_offset_from_top_as_percentage: f32,
     pub cursor_section: Option<OwnedSection>, // Our cursor section (the unicode character "█").
@@ -32,11 +31,9 @@ impl<'a> Perform for Performer<'a> {
         let screen = &mut self.screen;
         let text = &mut screen.lines[screen.row_index].text[0].text;
 
-        if self.cursor_index <= text.len() {
-            println!("This is the latest column_index: {}", screen.column_index);
-            text.insert(screen.column_index, c);
-            screen.column_index += 1;
-        }
+        //println!("This is the latest column_index: {}", screen.column_index);
+        text.insert(screen.column_index, c);
+        screen.column_index += 1;
 
         utils::move_cursor_right(self);
         self.cursor_index += 1;
@@ -49,7 +46,6 @@ impl<'a> Perform for Performer<'a> {
                 let screen = &mut self.screen;
 
                 // Go down to the next row.
-
                 screen.row_index += 1;
 
                 println!("Newline time!");
@@ -62,9 +58,7 @@ impl<'a> Perform for Performer<'a> {
                 cursor.screen_position.1 += self.font_size;
             }
             b'\r' => {
-                // Carriage return: move to start of the line
-                // You could scan back to previous '\n' to determine position
-                // For simplicity, just set to start of buffer (improve later)
+                // Carriage return: move to start of the line.
                 self.screen.column_index = 0;
                 self.cursor_index = 0;
             }
@@ -91,7 +85,7 @@ impl<'a> Perform for Performer<'a> {
         _ignore: bool,
         action: char,
     ) {
-        println!("This is the csi_dispatch: {}", action);
+        //println!("This is the csi_dispatch: {}", action);
         match action {
             'm' => {
                 for param in params.iter() {
@@ -135,15 +129,7 @@ impl<'a> Perform for Performer<'a> {
             }
             // Move the cursor right.
             'C' => {
-                // TODO.
-                /* println!("I am at cursor right!");
-                let offset = params.iter().flatten().next().copied().unwrap_or(1);
-                self.cursor_index = (self.cursor_index + offset as usize)
-                .min(self.text_section.as_ref().unwrap().text[0].text.len());
-
-                for _ in 0..offset {    // TODO: Change this so that we don't have a loop and perform this in one go for any given offset.
-                    utils::move_cursor_right(self);
-                } */
+                
             }
             // Move the cursor left.
             'D' => {
@@ -158,10 +144,7 @@ impl<'a> Perform for Performer<'a> {
             }
             // Delete a single character in the line.
             'K' => {
-                let text = &mut self.text_section.as_mut().unwrap().text[0].text;
-                if self.cursor_index < text.len() {
-                    let _ = text.remove(self.cursor_index);
-                }
+                
             }
             _ => (),
         }

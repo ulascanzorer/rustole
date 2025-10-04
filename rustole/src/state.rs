@@ -33,12 +33,11 @@ use winit::window::Window;
 
 use crate::state::screen::Screen;
 
-// The State struct, which holds the state of the application and acts as the application handler for
+/// The State struct, which holds the state of the application and acts as the application handler for
 // all the events that can happen to our window that we want to react to.
 pub struct State<'a> {
     performer: Option<performer::Performer<'a>>,
     parser: Parser,
-    text_string: &'a mut String,
 
     target_framerate: Duration,
     delta_time: Instant,
@@ -82,22 +81,6 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                 config.format,
             ));
 
-        let text_section = Some(
-            Section::default()
-                .add_text(
-                    Text::new(self.text_string)
-                        .with_scale(performer_mut.font_size)
-                        .with_color([0.6, 0.6, 0.5, 1.0]),
-                )
-                .with_bounds((config.width as f32 * 0.95, config.height as f32))
-                .with_layout(Layout::default().line_breaker(BuiltInLineBreaker::AnyCharLineBreaker))
-                .with_screen_position((
-                    performer_mut.text_offset_from_left,
-                    performer_mut.text_offset_from_top_as_percentage,
-                ))
-                .to_owned(),
-        );
-
         // Push the initial cursor to the cursor_string.
 
         let cursor_section = Some(
@@ -120,7 +103,6 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
 
         performer_mut.brush = brush;
         performer_mut.window = window;
-        performer_mut.text_section = text_section;
         performer_mut.cursor_section = cursor_section;
     }
 
@@ -146,15 +128,6 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                 surface.configure(device, config);
 
                 let performer_mut = self.performer.as_mut().unwrap();
-
-                performer_mut.text_section.as_mut().unwrap().bounds =
-                    (config.width as f32 * 0.95, config.height as _);
-                performer_mut
-                    .text_section
-                    .as_mut()
-                    .unwrap()
-                    .screen_position
-                    .1 = config.height as f32 * performer_mut.text_offset_from_top_as_percentage;
 
                 performer_mut.cursor_section.as_mut().unwrap().bounds =
                     (config.width as f32 * 0.95, config.height as _);
@@ -188,17 +161,10 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                     Key::Named(k) => match k {
                         NamedKey::Escape => event_loop.exit(),
                         NamedKey::Delete => {
-                            // Clear the displayed text.
-                            performer_mut.text_section.as_mut().unwrap().text[0]
-                                .text
-                                .clear();
-
                             // Reset the cursor.
                             let cursor_section = performer_mut.cursor_section.as_mut().unwrap();
-                            let text_section = performer_mut.text_section.as_mut().unwrap();
 
                             cursor_section.screen_position.0 = performer_mut.text_offset_from_left;
-                            cursor_section.screen_position.1 = text_section.screen_position.1;
                             performer_mut.cursor_index = 0;
                         }
                         NamedKey::Enter => {
@@ -307,8 +273,6 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                 };
                 performer_mut.font_size = (size.clamp(3.0, 25000.0) * 2.0).round() / 2.0;
 
-                performer_mut.text_section.as_mut().unwrap().text[0].scale =
-                    performer_mut.font_size.into();
                 performer_mut.cursor_section.as_mut().unwrap().text[0].scale =
                     performer_mut.font_size.into();
             }
@@ -322,12 +286,10 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                 let device = &ctx.device;
                 let config = &ctx.config;
                 let surface = &ctx.surface;
-                let text_section = performer.text_section.as_ref().unwrap();
                 let cursor_section = performer.cursor_section.as_ref().unwrap();
 
                 // NOTE: Section order in the brush queue should be [text_section, cursor_section], once cursor_section is implemented as the cursor, so that it stays on top of the text section.
                 let mut screen_section_refs: Vec<&OwnedSection> = performer.screen.lines.iter().collect();
-                //screen_section_refs.push(text_section);
                 screen_section_refs.push(cursor_section);
                 match brush.queue(device, queue, screen_section_refs) {
                     Ok(_) => (),
@@ -431,7 +393,6 @@ impl<'a> State<'a> {
     pub fn new(
         fd: &'a OwnedFd,
         state_config: &'a utils::StateConfig,
-        content_text: &'a mut String,
     ) -> Self {
         let font_color = [0.9, 0.5, 0.5, 1.0];
 
@@ -448,16 +409,13 @@ impl<'a> State<'a> {
                 cursor_index: 0,
                 font_size: state_config.font_size,
                 font_color: font_color,
-                text_section: None,
                 text_offset_from_left: 20.,
                 text_offset_from_top_as_percentage: 0.02,
                 cursor_section: None,
-                screen: Screen::new(10, 100, state_config.font_size, 1920, 1080, 20., 0.02),
-                pty_fd: &fd,
+                screen: Screen::new(state_config.font_size, 1920, 1080, 20., 0.02),
+                pty_fd: fd,
             }),
             parser: parser,
-
-            text_string: content_text,
 
             // FPS and window updating:
             // change '60.0' if you want different FPS cap
