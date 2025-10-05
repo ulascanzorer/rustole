@@ -239,6 +239,16 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                                 ),
                             }
                         }
+                        NamedKey::Tab => {
+                            // Send the tab character to the master pty.
+                            match write(performer_mut.pty_fd, b"\t") {
+                                Ok(_) => (),
+                                Err(e) => println!(
+                                    "There has been an error writing to the master pty: {}",
+                                    e
+                                ),
+                            }
+                        }
                         _ => (),
                     },
 
