@@ -64,12 +64,18 @@ impl<'a> Perform for Performer<'a> {
             }
             0x08 => {
                 // Backspace.
+
                 if self.cursor_index > 0 {
-                    /* if self.cursor_index < text.len() {
-                        let _ = text.remove(self.cursor_index);
-                    } */
+                    
+                    // Move the cursor.
                     self.cursor_index -= 1;
                     utils::move_cursor_left(self);
+
+                    // Delete the character from the screen.
+                    let screen = &mut self.screen;
+                    let text = &mut screen.lines[screen.row_index].text[0].text;
+
+                    text.pop();
                 }
             }
             _ => {
