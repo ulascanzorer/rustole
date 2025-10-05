@@ -25,7 +25,7 @@ use wgpu_text::glyph_brush::{BuiltInLineBreaker, Layout, Section, Text};
 use wgpu_text::{BrushBuilder, TextBrush};
 
 use winit::application::ApplicationHandler;
-use winit::event::{ElementState, WindowEvent};
+use winit::event::{ElementState, Modifiers, WindowEvent};
 use winit::event::{KeyEvent, MouseScrollDelta};
 use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::{Key, NamedKey};
@@ -38,6 +38,7 @@ use crate::state::screen::Screen;
 pub struct State<'a> {
     performer: Option<performer::Performer<'a>>,
     parser: Parser,
+    modifiers: Modifiers,   // These are keyboard modifiers (for example to check if we are pressing Ctrl at the moment).
 
     target_framerate: Duration,
     delta_time: Instant,
@@ -255,8 +256,14 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                     Key::Character(char) => {
                         let c = char.as_str();
 
-                        // Send the input character to the master pty.
-                        match write(performer_mut.pty_fd, c.as_bytes()) {
+                        // Send the appropriate byte to the master pty, depending on if we press Ctrl or not.
+                        let byte_to_send = if self.modifiers.state().control_key() {
+                            (c.to_ascii_uppercase().as_bytes()[0]) & 0x1F
+                        } else {
+                            c.as_bytes()[0]
+                        };
+
+                        match write(performer_mut.pty_fd, &[byte_to_send]) {
                             Ok(_) => (),
                             Err(e) => {
                                 println!("There has been an error writing to the master pty: {}", e)
@@ -355,6 +362,9 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                 frame.present();
             }
 
+            WindowEvent::ModifiersChanged(modifiers) => {
+                self.modifiers = modifiers;
+            }
             _ => (),
         }
     }
@@ -426,6 +436,7 @@ impl<'a> State<'a> {
                 pty_fd: fd,
             }),
             parser: parser,
+            modifiers: Modifiers::default(),
 
             // FPS and window updating:
             // change '60.0' if you want different FPS cap
