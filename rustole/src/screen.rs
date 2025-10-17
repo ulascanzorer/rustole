@@ -6,6 +6,8 @@ pub struct Screen {
     pub font_size: f32,
     pub row_index: usize,
     pub column_index: usize,
+    pub screen_width: u32,
+    pub screen_height: u32,
 }
 
 impl Screen {
@@ -43,6 +45,8 @@ impl Screen {
             font_size: font_size,
             row_index: 0,
             column_index: 0,
+            screen_width: screen_width,
+            screen_height: screen_height,
         }
     }
 }

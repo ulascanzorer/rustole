@@ -48,8 +48,6 @@ impl<'a> Perform for Performer<'a> {
                 // Go down to the next row.
                 screen.row_index += 1;
 
-                println!("Newline time!");
-
                 self.cursor_index += 1;
 
                 // Move cursor visually to the next line.
@@ -64,7 +62,6 @@ impl<'a> Perform for Performer<'a> {
             }
             0x08 => {
                 // Backspace.
-
                 if self.cursor_index > 0 {
                     
                     // Move the cursor.
@@ -93,6 +90,7 @@ impl<'a> Perform for Performer<'a> {
     ) {
         //println!("This is the csi_dispatch: {}", action);
         match action {
+            // Change font color.
             'm' => {
                 for param in params.iter() {
                     match param {
@@ -151,6 +149,30 @@ impl<'a> Perform for Performer<'a> {
             // Delete a single character in the line.
             'K' => {
                 
+            }
+            'J' => {
+                for param in params.iter() {
+                    match param {
+                        [0] => todo!(),
+                        [1] => todo!(),
+                        [2] => {
+                            // This means we have to clear the entire screen.
+                            let screen = &mut self.screen;
+                            for line in &mut screen.lines {
+                                line.text[0].text = String::from("");
+                            }
+                            
+                            self.screen.row_index = 0;
+                            self.screen.column_index = 0;
+
+                            // Reset the cursor section position.
+                            let cursor_section = &mut self.cursor_section.as_mut().unwrap();
+                            cursor_section.screen_position.0 = self.text_offset_from_left;
+                            cursor_section.screen_position.1 = self.text_offset_from_top_as_percentage * self.screen.screen_height as f32;
+                        }
+                        _ => ()
+                    }
+                }
             }
             _ => (),
         }
