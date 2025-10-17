@@ -31,9 +31,8 @@ impl<'a> Perform for Performer<'a> {
         let screen = &mut self.screen;
         let text = &mut screen.lines[screen.row_index].text[0].text;
 
-        //println!("This is the latest column_index: {}", screen.column_index);
         text.insert(screen.column_index, c);
-        screen.column_index += 1;
+        screen.column_index += c.len_utf8();
 
         utils::move_cursor_right(self);
         self.cursor_index += 1;
@@ -72,7 +71,9 @@ impl<'a> Perform for Performer<'a> {
                     let screen = &mut self.screen;
                     let text = &mut screen.lines[screen.row_index].text[0].text;
 
-                    text.pop();
+                    if let Some(c) = text.pop() {
+                        self.screen.column_index -= c.len_utf8();
+                    }
                 }
             }
             _ => {
