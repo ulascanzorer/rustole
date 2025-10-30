@@ -24,7 +24,8 @@ impl Screen {
         // TODO: Set the line properties correctly.
         for row_idx in 0..num_rows {
             let screen_pos_x = offset_from_left;
-            let screen_pos_y = (screen_height as f32 * offset_from_top) + (row_idx as f32 * font_size);
+            let screen_pos_y =
+                (screen_height as f32 * offset_from_top) + (row_idx as f32 * font_size);
 
             let section = Section::default()
                 .add_text(

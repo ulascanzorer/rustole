@@ -62,7 +62,6 @@ impl<'a> Perform for Performer<'a> {
             0x08 => {
                 // Backspace.
                 if self.cursor_index > 0 {
-                    
                     // Move the cursor.
                     self.cursor_index -= 1;
                     utils::move_cursor_left(self);
@@ -133,9 +132,7 @@ impl<'a> Perform for Performer<'a> {
                 }
             }
             // Move the cursor right.
-            'C' => {
-                
-            }
+            'C' => {}
             // Move the cursor left.
             'D' => {
                 // TODO.
@@ -148,9 +145,7 @@ impl<'a> Perform for Performer<'a> {
                 }
             }
             // Delete a single character in the line.
-            'K' => {
-                
-            }
+            'K' => {}
             'J' => {
                 for param in params.iter() {
                     match param {
@@ -162,16 +157,18 @@ impl<'a> Perform for Performer<'a> {
                             for line in &mut screen.lines {
                                 line.text[0].text = String::from("");
                             }
-                            
+
                             self.screen.row_index = 0;
                             self.screen.column_index = 0;
 
                             // Reset the cursor section position.
                             let cursor_section = &mut self.cursor_section.as_mut().unwrap();
                             cursor_section.screen_position.0 = self.text_offset_from_left;
-                            cursor_section.screen_position.1 = self.text_offset_from_top_as_percentage * self.screen.screen_height as f32;
+                            cursor_section.screen_position.1 = self
+                                .text_offset_from_top_as_percentage
+                                * self.screen.screen_height as f32;
                         }
-                        _ => ()
+                        _ => (),
                     }
                 }
             }
