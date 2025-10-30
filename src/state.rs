@@ -1,16 +1,7 @@
-#[path = "ctx.rs"]
-mod ctx;
-
-#[path = "utils.rs"]
-pub mod utils;
-
-#[path = "performer.rs"]
-mod performer;
-
-#[path = "screen.rs"]
-mod screen;
-
-use ctx::Ctx;
+use crate::context::Ctx;
+use crate::utils;
+use crate::screen::Screen;
+use crate::performer;
 
 use glyph_brush::ab_glyph::{Font, FontRef, ScaleFont};
 use glyph_brush::OwnedSection;
@@ -25,13 +16,10 @@ use wgpu_text::glyph_brush::{BuiltInLineBreaker, Layout, Section, Text};
 use wgpu_text::{BrushBuilder, TextBrush};
 
 use winit::application::ApplicationHandler;
-use winit::event::{ElementState, Modifiers, WindowEvent};
-use winit::event::{KeyEvent, MouseScrollDelta};
+use winit::event::{ElementState, Modifiers, WindowEvent, KeyEvent, MouseScrollDelta};
 use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::{Key, NamedKey};
 use winit::window::Window;
-
-use crate::state::screen::Screen;
 
 /// The State struct, which holds the state of the application and acts as the application handler for
 // all the events that can happen to our window that we want to react to.
@@ -163,15 +151,14 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                         NamedKey::Escape => match write(performer_mut.pty_fd, b"\x1b") {
                             Ok(_) => (),
                             Err(e) => println!(
-                                "There has been an error writing ESC to the master pty: {}",
-                                e
+                                "There has been an error writing ESC to the master pty: {e}"
                             ),
                         },
                         NamedKey::Delete => {
                             match write(performer_mut.pty_fd, b"\x1b[3~") {
                                 // ESC [ 3 ~
                                 Ok(_) => (),
-                                Err(e) => println!("Error writing forward-delete to pty: {}", e),
+                                Err(e) => println!("Error writing forward-delete to pty: {e}"),
                             }
                         }
                         NamedKey::Enter => {
@@ -179,8 +166,7 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                             match write(performer_mut.pty_fd, b"\r") {
                                 Ok(_) => (),
                                 Err(e) => println!(
-                                    "There has been an error writing to the master pty: {}",
-                                    e
+                                    "There has been an error writing to the master pty: {e}"
                                 ),
                             }
                         }
@@ -189,8 +175,7 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                             match write(performer_mut.pty_fd, b"\x7f") {
                                 Ok(_) => (),
                                 Err(e) => println!(
-                                    "There has been an error writing to the master pty: {}",
-                                    e
+                                    "There has been an error writing to the master pty: {e}",
                                 ),
                             }
                         }
@@ -199,8 +184,7 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                             match write(performer_mut.pty_fd, b" ") {
                                 Ok(_) => (),
                                 Err(e) => println!(
-                                    "There has been an error writing to the master pty: {}",
-                                    e
+                                    "There has been an error writing to the master pty: {e}"
                                 ),
                             }
                         }
@@ -210,8 +194,7 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                             match write(performer_mut.pty_fd, b"\x1b[D") {
                                 Ok(_) => (),
                                 Err(e) => println!(
-                                    "There has been an error writing to the master pty: {}",
-                                    e
+                                    "There has been an error writing to the master pty: {e}"
                                 ),
                             }
                         }
@@ -221,8 +204,7 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                             match write(performer_mut.pty_fd, b"\x1b[C") {
                                 Ok(_) => (),
                                 Err(e) => println!(
-                                    "There has been an error writing to the master pty: {}",
-                                    e
+                                    "There has been an error writing to the master pty: {e}"
                                 ),
                             }
                         }
@@ -231,8 +213,7 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                             match write(performer_mut.pty_fd, b"\x1b[A") {
                                 Ok(_) => (),
                                 Err(e) => println!(
-                                    "There has been an error writing to the master pty: {}",
-                                    e
+                                    "There has been an error writing to the master pty: {e}"
                                 ),
                             }
                         }
@@ -241,8 +222,7 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                             match write(performer_mut.pty_fd, b"\x1b[B") {
                                 Ok(_) => (),
                                 Err(e) => println!(
-                                    "There has been an error writing to the master pty: {}",
-                                    e
+                                    "There has been an error writing to the master pty: {e}"
                                 ),
                             }
                         }
@@ -251,8 +231,7 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                             match write(performer_mut.pty_fd, b"\t") {
                                 Ok(_) => (),
                                 Err(e) => println!(
-                                    "There has been an error writing to the master pty: {}",
-                                    e
+                                    "There has been an error writing to the master pty: {e}"
                                 ),
                             }
                         }
@@ -272,7 +251,7 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                         match write(performer_mut.pty_fd, &[byte_to_send]) {
                             Ok(_) => (),
                             Err(e) => {
-                                println!("There has been an error writing to the master pty: {}", e)
+                                println!("There has been an error writing to the master pty: {e}")
                             }
                         }
                     }
@@ -326,7 +305,7 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                     Ok(frame) => frame,
                     Err(_) => {
                         surface.configure(device, config);
-                        return ();
+                        return;
                     } // {
                       //    surface.configure(device, config);
                       //    surface.get_current_texture().expect("Failed to acquire next surface texture!")
@@ -432,14 +411,14 @@ impl<'a> State<'a> {
                 char_width: 0.0,
                 cursor_index: 0,
                 font_size: state_config.font_size,
-                font_color: font_color,
+                font_color,
                 text_offset_from_left: 20.,
                 text_offset_from_top_as_percentage: 0.02,
                 cursor_section: None,
                 screen: Screen::new(state_config.font_size, 1920, 1080, 20., 0.02),
                 pty_fd: fd,
             }),
-            parser: parser,
+            parser,
             modifiers: Modifiers::default(),
 
             // FPS and window updating:

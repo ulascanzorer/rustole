@@ -15,7 +15,7 @@ use nix::unistd::read;
 
 use serde::Deserialize;
 
-use crate::state::performer::Performer;
+use crate::performer::Performer;
 
 #[derive(Clone, Debug)]
 pub struct SomethingInFd {
@@ -80,7 +80,7 @@ pub fn spawn_pty_with_shell(default_shell: String) -> OwnedFd {
                     panic!("exec() failed!");
                 }
             },
-            Err(e) => panic!("Failed to fork {:?}", e),
+            Err(e) => panic!("Failed to fork {e:?}"),
         }
     }
 }
@@ -117,7 +117,7 @@ pub fn monitor_fd(fd: OwnedFd, proxy: EventLoopProxy<SomethingInFd>) {
                     }) {
                         Ok(_) => (),
                         Err(e) => {
-                            println!("There has been an error while sending the event: {}", e)
+                            println!("There has been an error while sending the event: {e}")
                         }
                     }
                 }
@@ -125,8 +125,7 @@ pub fn monitor_fd(fd: OwnedFd, proxy: EventLoopProxy<SomethingInFd>) {
                     match e {
                         Errno::EIO => std::process::exit(0), // TODO: Implement graceful quiting here.
                         anything_else => println!(
-                            "There has been an error with the following error code: {}",
-                            anything_else
+                            "There has been an error with the following error code: {anything_else}"
                         ),
                     }
                 }
