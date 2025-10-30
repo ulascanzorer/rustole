@@ -38,7 +38,7 @@ use crate::state::screen::Screen;
 pub struct State<'a> {
     performer: Option<performer::Performer<'a>>,
     parser: Parser,
-    modifiers: Modifiers,   // These are keyboard modifiers (for example to check if we are pressing Ctrl at the moment).
+    modifiers: Modifiers, // These are keyboard modifiers (for example to check if we are pressing Ctrl at the moment).
 
     target_framerate: Duration,
     delta_time: Instant,
@@ -160,13 +160,19 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                 let performer_mut = self.performer.as_mut().unwrap();
                 match logical_key {
                     Key::Named(k) => match k {
-                        NamedKey::Escape => event_loop.exit(),
+                        NamedKey::Escape => match write(performer_mut.pty_fd, b"\x1b") {
+                            Ok(_) => (),
+                            Err(e) => println!(
+                                "There has been an error writing ESC to the master pty: {}",
+                                e
+                            ),
+                        },
                         NamedKey::Delete => {
-                            // Reset the cursor.
-                            let cursor_section = performer_mut.cursor_section.as_mut().unwrap();
-
-                            cursor_section.screen_position.0 = performer_mut.text_offset_from_left;
-                            performer_mut.cursor_index = 0;
+                            match write(performer_mut.pty_fd, b"\x1b[3~") {
+                                // ESC [ 3 ~
+                                Ok(_) => (),
+                                Err(e) => println!("Error writing forward-delete to pty: {}", e),
+                            }
                         }
                         NamedKey::Enter => {
                             // Send the carriage return character to the master pty.
@@ -306,7 +312,8 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                 let cursor_section = performer.cursor_section.as_ref().unwrap();
 
                 // NOTE: Section order in the brush queue should be [text_section, cursor_section], once cursor_section is implemented as the cursor, so that it stays on top of the text section.
-                let mut screen_section_refs: Vec<&OwnedSection> = performer.screen.lines.iter().collect();
+                let mut screen_section_refs: Vec<&OwnedSection> =
+                    performer.screen.lines.iter().collect();
                 screen_section_refs.push(cursor_section);
                 match brush.queue(device, queue, screen_section_refs) {
                     Ok(_) => (),
@@ -410,10 +417,7 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
 }
 
 impl<'a> State<'a> {
-    pub fn new(
-        fd: &'a OwnedFd,
-        state_config: &'a utils::StateConfig,
-    ) -> Self {
+    pub fn new(fd: &'a OwnedFd, state_config: &'a utils::StateConfig) -> Self {
         let font_color = [0.9, 0.5, 0.5, 1.0];
 
         // Create the parser.

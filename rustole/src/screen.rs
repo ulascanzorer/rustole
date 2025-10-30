@@ -6,6 +6,8 @@ pub struct Screen {
     pub font_size: f32,
     pub row_index: usize,
     pub column_index: usize,
+    pub screen_width: u32,
+    pub screen_height: u32,
 }
 
 impl Screen {
@@ -22,7 +24,8 @@ impl Screen {
         // TODO: Set the line properties correctly.
         for row_idx in 0..num_rows {
             let screen_pos_x = offset_from_left;
-            let screen_pos_y = (screen_height as f32 * offset_from_top) + (row_idx as f32 * font_size);
+            let screen_pos_y =
+                (screen_height as f32 * offset_from_top) + (row_idx as f32 * font_size);
 
             let section = Section::default()
                 .add_text(
@@ -43,6 +46,8 @@ impl Screen {
             font_size: font_size,
             row_index: 0,
             column_index: 0,
+            screen_width: screen_width,
+            screen_height: screen_height,
         }
     }
 }
