@@ -20,10 +20,12 @@ impl Ctx {
             backend_options: wgpu::BackendOptions {
                 gl: wgpu::GlBackendOptions {
                     gles_minor_version: wgpu::Gles3MinorVersion::Automatic,
+                    fence_behavior: wgpu::GlFenceBehavior::Normal,
                 },
                 dx12: wgpu::Dx12BackendOptions {
                     shader_compiler: wgpu::Dx12Compiler::Fxc,
                 },
+                noop: wgpu::NoopBackendOptions { enable: false },
             },
         });
 
@@ -35,15 +37,13 @@ impl Ctx {
         }))
         .expect("No adapters found!");
 
-        let (device, queue) = block_on(adapter.request_device(
-            &wgpu::DeviceDescriptor {
-                label: Some("Device"),
-                required_features: wgpu::Features::empty(),
-                required_limits: wgpu::Limits::default(),
-                memory_hints: wgpu::MemoryHints::default(),
-            },
-            None,
-        ))
+        let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+            label: Some("Device"),
+            required_features: wgpu::Features::empty(),
+            required_limits: wgpu::Limits::default(),
+            memory_hints: wgpu::MemoryHints::default(),
+            trace: wgpu::Trace::Off,
+        }))
         .unwrap();
 
         let config = surface
