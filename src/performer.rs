@@ -5,10 +5,8 @@ use vte::{Params, Perform};
 use wgpu_text::TextBrush;
 use winit::window::Window;
 
-use crate::state::screen::Screen;
-
-#[path = "utils.rs"]
-mod utils;
+use crate::screen::Screen;
+use crate::utils;
 
 pub struct Performer<'a> {
     pub window: Option<Arc<Window>>,
@@ -39,7 +37,7 @@ impl<'a> Perform for Performer<'a> {
     }
 
     fn execute(&mut self, byte: u8) {
-        println!("This is execute: {}", byte);
+        println!("This is execute: {byte}");
         match byte {
             b'\n' => {
                 let screen = &mut self.screen;
@@ -97,9 +95,7 @@ impl<'a> Perform for Performer<'a> {
                         [0] => {
                             self.font_color = [1., 1., 1., 1.]; // Make font color white (this is the reset option).
                         }
-                        [1] => {
-                            ();
-                        }
+                        [1] => {}
                         [30] => {
                             self.font_color = [0., 0., 0., 1.]; // Make font color black.
                         }
@@ -177,23 +173,23 @@ impl<'a> Perform for Performer<'a> {
     }
 
     fn esc_dispatch(&mut self, _intermediates: &[u8], _ignore: bool, byte: u8) {
-        println!("This is the last byte of the escape dispatch: {}", byte);
+        println!("This is the last byte of the escape dispatch: {byte}");
     }
 
     fn hook(&mut self, _params: &Params, _intermediates: &[u8], _ignore: bool, _action: char) {
-        ();
+        
     }
 
     fn unhook(&mut self) {
-        ();
+        
     }
 
     fn put(&mut self, _byte: u8) {
-        ();
+        
     }
 
     fn osc_dispatch(&mut self, _params: &[&[u8]], _bell_terminated: bool) {
-        ();
+        
     }
 
     fn terminated(&self) -> bool {

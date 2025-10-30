@@ -42,12 +42,12 @@ impl Screen {
         }
 
         Screen {
-            lines: lines,
-            font_size: font_size,
+            lines,
+            font_size,
             row_index: 0,
             column_index: 0,
-            screen_width: screen_width,
-            screen_height: screen_height,
+            screen_width,
+            screen_height,
         }
     }
 }

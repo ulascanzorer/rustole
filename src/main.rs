@@ -1,5 +1,8 @@
-#[path = "state.rs"]
 mod state;
+mod utils;
+mod context;
+mod performer;
+mod screen;
 
 use winit::event_loop::{self, ControlFlow};
 
@@ -15,7 +18,7 @@ fn main() {
     std::env::set_var("RUST_BACKTRACE", "1");
 
     // Create the event loop.
-    let event_loop = event_loop::EventLoop::<state::utils::SomethingInFd>::with_user_event()
+    let event_loop = event_loop::EventLoop::<utils::SomethingInFd>::with_user_event()
         .build()
         .unwrap();
     event_loop.set_control_flow(ControlFlow::Poll);
@@ -28,14 +31,14 @@ fn main() {
 
     let default_shell = String::from("/usr/bin/bash"); // TODO: Remove this after implementing ANSI escape sequences properly (so we can use for example zsh with all its fancy features).
 
-    println!("{}", default_shell);
+    println!("{default_shell}");
 
-    let stdout_fd = state::utils::spawn_pty_with_shell(default_shell);
+    let stdout_fd = utils::spawn_pty_with_shell(default_shell);
 
-    state::utils::monitor_fd(stdout_fd.try_clone().unwrap(), event_loop_proxy);
+    utils::monitor_fd(stdout_fd.try_clone().unwrap(), event_loop_proxy);
 
     // Get the config.
-    let state_config = state::utils::StateConfig::new();
+    let state_config = utils::StateConfig::new();
 
     let mut state = state::State::new(&stdout_fd, &state_config);
 
