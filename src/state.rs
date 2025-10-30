@@ -27,6 +27,7 @@ pub struct State<'a> {
     performer: Option<performer::Performer<'a>>,
     parser: Parser,
     modifiers: Modifiers, // These are keyboard modifiers (for example to check if we are pressing Ctrl at the moment).
+    background_color: [f64; 4],
 
     target_framerate: Duration,
     delta_time: Instant,
@@ -327,11 +328,11 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                             view: &view,
                             resolve_target: None,
                             ops: wgpu::Operations {
-                                load: wgpu::LoadOp::Clear(wgpu::Color {
-                                    r: 0.2,
-                                    g: 0.2,
-                                    b: 0.3,
-                                    a: 1.,
+                                load: wgpu::LoadOp::Clear(wgpu::Color { // This represents our background.
+                                    r: self.background_color[0],
+                                    g: self.background_color[1],
+                                    b: self.background_color[2],
+                                    a: self.background_color[3],
                                 }),
                                 store: wgpu::StoreOp::Store,
                             },
@@ -418,6 +419,7 @@ impl<'a> State<'a> {
                 screen: Screen::new(state_config.font_size, 1920, 1080, 20., 0.02),
                 pty_fd: fd,
             }),
+            background_color: state_config.background_color,
             parser,
             modifiers: Modifiers::default(),
 

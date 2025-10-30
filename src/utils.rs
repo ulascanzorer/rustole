@@ -28,6 +28,7 @@ pub struct SomethingInFd {
 pub struct Config {
     pub font_name: String,
     pub font_size: f32,
+    pub background_color: [f64; 4],
 }
 
 impl Default for Config {
@@ -35,6 +36,7 @@ impl Default for Config {
         Config {
             font_name: String::from("fonts/DejaVuSansMono.ttf"),
             font_size: 32.0,
+            background_color: [0.38, 0.235, 0.027, 1.]
         }
     }
 }
@@ -52,6 +54,7 @@ impl Config {
 pub struct StateConfig {
     pub font_size: f32,
     pub font: Vec<u8>,
+    pub background_color: [f64; 4],
 }
 
 impl StateConfig {
@@ -66,6 +69,7 @@ impl StateConfig {
         StateConfig {
             font_size: config.font_size,
             font,
+            background_color: config.background_color
         }
     }
 }
