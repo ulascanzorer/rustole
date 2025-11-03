@@ -1,8 +1,8 @@
-mod state;
-mod utils;
 mod context;
 mod performer;
 mod screen;
+mod state;
+mod utils;
 
 use winit::event_loop::{self, ControlFlow};
 

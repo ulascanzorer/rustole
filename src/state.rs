@@ -1,7 +1,7 @@
 use crate::context::Ctx;
-use crate::utils;
-use crate::screen::Screen;
 use crate::performer;
+use crate::screen::Screen;
+use crate::utils;
 
 use glyph_brush::ab_glyph::{Font, FontRef, ScaleFont};
 use glyph_brush::OwnedSection;
@@ -16,7 +16,7 @@ use wgpu_text::glyph_brush::{BuiltInLineBreaker, Layout, Section, Text};
 use wgpu_text::{BrushBuilder, TextBrush};
 
 use winit::application::ApplicationHandler;
-use winit::event::{ElementState, Modifiers, WindowEvent, KeyEvent, MouseScrollDelta};
+use winit::event::{ElementState, KeyEvent, Modifiers, MouseScrollDelta, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::{Key, NamedKey};
 use winit::window::Window;
@@ -291,8 +291,13 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                 let cursor_section = performer.cursor_section.as_ref().unwrap();
 
                 // NOTE: Section order in the brush queue should be [text_section, cursor_section], once cursor_section is implemented as the cursor, so that it stays on top of the text section.
-                let mut screen_section_refs: Vec<&OwnedSection> =
-                    performer.screen.lines.iter().collect();
+
+                let mut screen_section_refs: Vec<&OwnedSection> = performer
+                    .screen
+                    .glyphs
+                    .iter()
+                    .flat_map(|row| row.iter())
+                    .collect();
                 screen_section_refs.push(cursor_section);
                 match brush.queue(device, queue, screen_section_refs) {
                     Ok(_) => (),

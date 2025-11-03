@@ -1,6 +1,7 @@
 use std::{os::fd::OwnedFd, sync::Arc};
 
 use glyph_brush::{ab_glyph::FontRef, OwnedSection};
+use glyph_brush::{Layout, Section, Text};
 use vte::{Params, Perform};
 use wgpu_text::TextBrush;
 use winit::window::Window;
@@ -27,10 +28,9 @@ pub struct Performer<'a> {
 impl<'a> Perform for Performer<'a> {
     fn print(&mut self, c: char) {
         let screen = &mut self.screen;
-        let text = &mut screen.lines[screen.row_index].text[0].text;
 
-        text.insert(screen.column_index, c);
-        screen.column_index += c.len_utf8();
+        screen.glyphs[screen.row_index][screen.column_index].text[0].text = String::from(c);
+        screen.column_index += 1;
 
         utils::move_cursor_right(self);
         self.cursor_index += 1;
@@ -66,10 +66,11 @@ impl<'a> Perform for Performer<'a> {
 
                     // Delete the character from the screen.
                     let screen = &mut self.screen;
-                    let text = &mut screen.lines[screen.row_index].text[0].text;
 
-                    if let Some(c) = text.pop() {
-                        self.screen.column_index -= c.len_utf8();
+                    if screen.column_index > 0 {
+                        screen.glyphs[screen.row_index][screen.column_index].text[0].text =
+                            String::from("");
+                        screen.column_index -= 1;
                     }
                 }
             }
@@ -150,8 +151,10 @@ impl<'a> Perform for Performer<'a> {
                         [2] => {
                             // This means we have to clear the entire screen.
                             let screen = &mut self.screen;
-                            for line in &mut screen.lines {
-                                line.text[0].text = String::from("");
+                            for line in &mut screen.glyphs {
+                                for glyph in line {
+                                    glyph.text[0].text = String::from("");
+                                }
                             }
 
                             self.screen.row_index = 0;
@@ -176,21 +179,13 @@ impl<'a> Perform for Performer<'a> {
         println!("This is the last byte of the escape dispatch: {byte}");
     }
 
-    fn hook(&mut self, _params: &Params, _intermediates: &[u8], _ignore: bool, _action: char) {
-        
-    }
+    fn hook(&mut self, _params: &Params, _intermediates: &[u8], _ignore: bool, _action: char) {}
 
-    fn unhook(&mut self) {
-        
-    }
+    fn unhook(&mut self) {}
 
-    fn put(&mut self, _byte: u8) {
-        
-    }
+    fn put(&mut self, _byte: u8) {}
 
-    fn osc_dispatch(&mut self, _params: &[&[u8]], _bell_terminated: bool) {
-        
-    }
+    fn osc_dispatch(&mut self, _params: &[&[u8]], _bell_terminated: bool) {}
 
     fn terminated(&self) -> bool {
         false
