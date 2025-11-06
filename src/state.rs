@@ -1,7 +1,7 @@
 use crate::context::Ctx;
-use crate::utils;
-use crate::screen::Screen;
 use crate::performer;
+use crate::screen::Screen;
+use crate::utils;
 
 use glyph_brush::ab_glyph::{Font, FontRef, ScaleFont};
 use glyph_brush::OwnedSection;
@@ -16,7 +16,7 @@ use wgpu_text::glyph_brush::{BuiltInLineBreaker, Layout, Section, Text};
 use wgpu_text::{BrushBuilder, TextBrush};
 
 use winit::application::ApplicationHandler;
-use winit::event::{ElementState, Modifiers, WindowEvent, KeyEvent, MouseScrollDelta};
+use winit::event::{ElementState, KeyEvent, Modifiers, MouseScrollDelta, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::{Key, NamedKey};
 use winit::window::Window;
@@ -54,14 +54,6 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
         let performer_mut = self.performer.as_mut().unwrap();
 
         let font_slice = performer_mut.font.as_slice();
-
-        // Save the character width of the given font with the given scale in the performer.
-        let font_ref = FontRef::try_from_slice(font_slice).unwrap();
-        let scaled_font = font_ref.as_scaled(performer_mut.font_size);
-        let char_width = scaled_font.h_advance(font_ref.glyph_id(' '));
-        println!("Scaled font pixel width: {}", scaled_font.scale.x);
-
-        performer_mut.char_width = char_width;
 
         let brush: Option<TextBrush<FontRef<'a>>> =
             Some(BrushBuilder::using_font_bytes(font_slice).unwrap().build(
@@ -292,8 +284,13 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
                 let cursor_section = performer.cursor_section.as_ref().unwrap();
 
                 // NOTE: Section order in the brush queue should be [text_section, cursor_section], once cursor_section is implemented as the cursor, so that it stays on top of the text section.
-                let mut screen_section_refs: Vec<&OwnedSection> =
-                    performer.screen.lines.iter().collect();
+
+                let mut screen_section_refs: Vec<&OwnedSection> = performer
+                    .screen
+                    .glyphs
+                    .iter()
+                    .flat_map(|row| row.iter())
+                    .collect();
                 screen_section_refs.push(cursor_section);
                 match brush.queue(device, queue, screen_section_refs) {
                     Ok(_) => (),
@@ -403,20 +400,27 @@ impl<'a> State<'a> {
         // Create the parser.
         let parser = Parser::new();
 
+        let font_slice = state_config.font.as_slice();
+
+        // Save the character width of the given font with the given scale in the performer.
+        let font_ref = FontRef::try_from_slice(font_slice).unwrap();
+        let scaled_font = font_ref.as_scaled(state_config.font_size);
+        let char_width = scaled_font.h_advance(font_ref.glyph_id(' '));
+
         // Create the state.
         State {
             performer: Some(performer::Performer {
                 window: None,
                 font: &state_config.font,
                 brush: None,
-                char_width: 0.0,
+                char_width: char_width,
                 cursor_index: 0,
                 font_size: state_config.font_size,
                 font_color,
                 text_offset_from_left: 20.,
                 text_offset_from_top_as_percentage: 0.02,
                 cursor_section: None,
-                screen: Screen::new(state_config.font_size, 1920, 1080, 20., 0.02),
+                screen: Screen::new(state_config.font_size, char_width, 1920, 1080, 20., 0.02),
                 pty_fd: fd,
             }),
             background_color: state_config.background_color,
