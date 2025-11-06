@@ -54,14 +54,6 @@ impl<'a> ApplicationHandler<utils::SomethingInFd> for State<'a> {
 
         let font_slice = performer_mut.font.as_slice();
 
-        // Save the character width of the given font with the given scale in the performer.
-        let font_ref = FontRef::try_from_slice(font_slice).unwrap();
-        let scaled_font = font_ref.as_scaled(performer_mut.font_size);
-        let char_width = scaled_font.h_advance(font_ref.glyph_id(' '));
-        println!("Scaled font pixel width: {}", scaled_font.scale.x);
-
-        performer_mut.char_width = char_width;
-
         let brush: Option<TextBrush<FontRef<'a>>> =
             Some(BrushBuilder::using_font_bytes(font_slice).unwrap().build(
                 device,
@@ -407,20 +399,27 @@ impl<'a> State<'a> {
         // Create the parser.
         let parser = Parser::new();
 
+        let font_slice = state_config.font.as_slice();
+
+        // Save the character width of the given font with the given scale in the performer.
+        let font_ref = FontRef::try_from_slice(font_slice).unwrap();
+        let scaled_font = font_ref.as_scaled(state_config.font_size);
+        let char_width = scaled_font.h_advance(font_ref.glyph_id(' '));
+
         // Create the state.
         State {
             performer: Some(performer::Performer {
                 window: None,
                 font: &state_config.font,
                 brush: None,
-                char_width: 0.0,
+                char_width: char_width,
                 cursor_index: 0,
                 font_size: state_config.font_size,
                 font_color,
                 text_offset_from_left: 20.,
                 text_offset_from_top_as_percentage: 0.02,
                 cursor_section: None,
-                screen: Screen::new(state_config.font_size, 1920, 1080, 20., 0.02),
+                screen: Screen::new(state_config.font_size, char_width, 1920, 1080, 20., 0.02),
                 pty_fd: fd,
             }),
             parser,

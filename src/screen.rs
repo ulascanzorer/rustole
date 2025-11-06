@@ -5,6 +5,7 @@ pub struct Screen {
     //  Each Section represents a glyph on the screen. Therefore it is defined as a vector of vectors, representing the 2D screen.
     pub glyphs: Vec<Vec<OwnedSection>>,
     pub font_size: f32,
+    pub char_width: f32,
     pub row_index: usize,
     pub column_index: usize,
     pub screen_width: u32,
@@ -14,6 +15,7 @@ pub struct Screen {
 impl Screen {
     pub fn new(
         font_size: f32,
+        char_width: f32,
         screen_width: u32,
         screen_height: u32,
         offset_from_left: f32,
@@ -25,14 +27,13 @@ impl Screen {
 
         // TODO: Set the line properties correctly.
         for row_idx in 0..num_rows {
-            let mut screen_pos_x = offset_from_left;
             let screen_pos_y =
                 (screen_height as f32 * offset_from_top) + (row_idx as f32 * font_size);
 
             let mut glyphs_in_line = vec![];
 
             for col_idx in 0..num_cols {
-                screen_pos_x += col_idx as f32 * font_size;
+                let screen_pos_x = offset_from_left + (char_width * col_idx as f32);
 
                 let section = Section::default()
                     .add_text(
@@ -54,6 +55,7 @@ impl Screen {
         Screen {
             glyphs,
             font_size,
+            char_width,
             row_index: 0,
             column_index: 0,
             screen_width,
