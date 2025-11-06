@@ -23,7 +23,7 @@ impl Screen {
     ) -> Self {
         let mut glyphs: Vec<Vec<OwnedSection>> = vec![];
         let num_rows = screen_height / font_size as u32;
-        let num_cols = screen_width / font_size as u32;
+        let num_cols = screen_width / char_width as u32;
 
         // TODO: Set the line properties correctly.
         for row_idx in 0..num_rows {
