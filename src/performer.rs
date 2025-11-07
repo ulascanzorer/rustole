@@ -71,9 +71,9 @@ impl<'a> Perform for Performer<'a> {
                     let screen = &mut self.screen;
 
                     if screen.column_index > 0 {
+                        screen.column_index -= 1;
                         screen.glyphs[screen.row_index][screen.column_index].text[0].text =
                             String::from("");
-                        screen.column_index -= 1;
                     }
                 }
             }
